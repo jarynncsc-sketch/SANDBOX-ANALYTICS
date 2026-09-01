@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AGUS · Sandbox Analytics</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script>
+  // Applied immediately (before body paints) to avoid a flash of the wrong theme.
+  (function(){
+    try {
+      const saved = localStorage.getItem('agus-theme');
+      const theme = saved || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+      if (theme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+    } catch (e) { /* localStorage unavailable — default to light */ }
+  })();
+</script>
+<style>
+  :root{
+    --bg:#f4f9fa;
+    --bg-panel:#ffffff;
+    --bg-card:#ffffff;
+    --bg-card-hover:#ecf6f7;
+    --border:#d3e6e7;
+    --border-soft:#e6f0f1;
+    --text:#10343c;
+    --text-muted:#57777d;
+    --text-faint:#8fafb5;
+    --teal:#0a7f93;
+    --teal-dim:#dceff3;
+    --amber:#c9821e;
+    --amber-dim:#f9eed8;
+    --red:#c8443f;
+    --red-dim:#fbe6e5;
+    --blue:#2e7da6;
+    --blue-dim:#e1eef4;
+    --green:#2f9e6f;
+    --purple:#6d54ab;
+    --orange:#d9731c;
+    --pink:#b3467c;
+    --radius:10px;
+    --mono:'IBM Plex Mono', ui-monospace, monospace;
+    --sans:'IBM Plex Sans', system-ui, sans-serif;
+    --display:'Space Grotesk', 'IBM Plex Sans', sans-serif;
+    --topbar-bg:rgba(255,255,255,0.85);
+    color-scheme: light;
+  }
+  html[data-theme="dark"]{
+    --bg:#0b1416;
+    --bg-panel:#101c1f;
+    --bg-card:#132226;
+    --bg-card-hover:#17282c;
+    --border:#233a3f;
+    --border-soft:#1b2e32;
+    --text:#e6f2f3;
+    --text-muted:#9db8bc;
+    --text-faint:#5f7d82;
+    --teal:#2fc4d8;
+    --teal-dim:#13343c;
+    --amber:#e0a742;
+    --amber-dim:#3a2f16;
+    --red:#e56c66;
+    --red-dim:#3a1c1c;
+    --blue:#5fa8d6;
+    --blue-dim:#152836;
+    --green:#4fc48f;
+    --purple:#a78bda;
+    --orange:#f0954a;
+    --pink:#e17ba8;
+    --topbar-bg:rgba(16,28,31,0.85);
+    color-scheme: dark;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(circle at 15% 0%, rgba(10,127,147,0.05), transparent 45%),
+      radial-gradient(circle at 85% 15%, rgba(46,125,166,0.04), transparent 50%),
+      var(--bg);
+    color:var(--text);
+    font-family:var(--sans);
+    min-height:100vh;
+    -webkit-font-smoothing:antialiased;
+    transition:background-color .15s,color .15s;
+  }
+  html[data-theme="dark"] body{
+    background:
+      radial-gradient(circle at 15% 0%, rgba(47,196,216,0.06), transparent 45%),
+      radial-gradient(circle at 85% 15%, rgba(95,168,214,0.05), transparent 50%),
+      var(--bg);
+  }
+  *{scrollbar-color: var(--border) transparent;}
+  ::selection{background:var(--teal-dim);color:var(--text);}
+  button{font-family:var(--sans);cursor:pointer;}
+
+  .hidden{display:none !important;}
+  .mono{font-family:var(--mono);}
+
+  #app{display:flex;min-height:100vh;flex-direction:column;}
+  header.topbar{
+    display:flex;align-items:center;gap:20px;
+    padding:14px 24px;border-bottom:1px solid var(--border);
+    background:var(--topbar-bg);backdrop-filter:blur(6px);
+    box-shadow:0 1px 0 rgba(10,127,147,0.03);
+    position:sticky;top:0;z-index:20;flex-wrap:wrap;row-gap:10px;
+  }
+  .brand{display:flex;align-items:center;gap:10px;flex-shrink:0;}
+  .brand-mark{
+    width:30px;height:30px;border-radius:7px;
+    background:linear-gradient(135deg,var(--teal),var(--blue));
+    display:flex;align-items:center;justify-content:center;
+    font-family:var(--display);font-weight:700;font-size:13px;color:#ffffff;flex-shrink:0;
+  }
+  .brand-text{display:flex;flex-direction:column;line-height:1.1;}
+  .brand-text b{font-family:var(--display);font-size:15px;font-weight:600;}
+  .brand-text span{font-size:10.5px;color:var(--text-faint);letter-spacing:.08em;font-family:var(--mono);}
+
+  .period-tabs{display:flex;gap:4px;margin-left:auto;background:var(--bg-card);border:1px solid var(--border);border-radius:9px;padding:3px;}
+  .period-tabs button{
+    padding:7px 14px;border-radius:6px;border:none;background:transparent;
+    color:var(--text-muted);font-size:12.5px;font-weight:600;white-space:nowrap;transition:all .15s;
+  }
+  .period-tabs button:hover{color:var(--text);}
+  .period-tabs button.active{color:#fff;background:var(--teal);}
+
+  .theme-toggle{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:32px;height:32px;border-radius:7px;border:1px solid var(--border);
+    background:var(--bg-card);color:var(--text-muted);flex-shrink:0;
+    font-size:16px;line-height:1;transition:all .15s;
+  }
+  .theme-toggle:hover{color:var(--teal);border-color:var(--teal);}
+  .theme-toggle .icon-sun{display:none;}
+  .theme-toggle .icon-moon{display:inline;}
+  html[data-theme="dark"] .theme-toggle .icon-moon{display:none;}
+  html[data-theme="dark"] .theme-toggle .icon-sun{display:inline;}
+
+  main{flex:1;padding:24px;max-width:1500px;width:100%;margin:0 auto;}
+
+  .panel{
+    background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);
+    padding:18px 20px;box-shadow:0 1px 3px rgba(10,127,147,0.04);margin-bottom:18px;
+  }
+  .panel h3{
+    font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--teal);margin:0 0 14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  }
+  .panel h3 .hint{margin-left:auto;font-weight:400;letter-spacing:0;color:var(--text-faint);}
+
+  .station-toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:2px;}
+  .station-toolbar .btns{display:flex;gap:8px;}
+  .btn-ghost{
+    padding:6px 12px;border-radius:7px;border:1px solid var(--border);background:transparent;
+    color:var(--text-muted);font-size:12px;font-weight:600;transition:all .15s;
+  }
+  .btn-ghost:hover{color:var(--text);border-color:var(--text-faint);}
+
+  .chiprow{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;}
+  .chip{
+    padding:6px 13px 6px 10px;border-radius:99px;border:1px solid var(--border);background:var(--bg-panel);
+    font-size:12.5px;color:var(--text-muted);font-weight:600;display:flex;align-items:center;gap:7px;
+    transition:all .15s;opacity:.55;
+  }
+  .chip:hover{border-color:var(--text-faint);opacity:.85;}
+  .chip.active{opacity:1;border-color:var(--dot);color:var(--text);background:var(--bg-card-hover);}
+  .chip i{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--dot);flex-shrink:0;}
+
+  .stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;}
+  .stat{
+    background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius);padding:13px 15px;
+  }
+  .stat .label{font-family:var(--mono);font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--text-faint);margin-bottom:6px;}
+  .stat .value{font-family:var(--mono);font-size:21px;font-weight:700;color:var(--teal);}
+  .stat .value span{font-size:12px;font-weight:600;color:var(--text-faint);margin-left:2px;}
+  .stat .sub{font-size:10.5px;color:var(--text-faint);margin-top:3px;}
+
+  .metric-tabs{display:flex;gap:8px;flex-wrap:wrap;}
+  .metric-tab{
+    padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:var(--bg-panel);
+    color:var(--text-muted);font-size:12.5px;font-weight:600;transition:all .15s;
+  }
+  .metric-tab:hover{border-color:var(--text-faint);color:var(--text);}
+  .metric-tab.active{border-color:var(--teal);color:#fff;background:var(--teal);}
+  .metric-tab .unit{font-weight:400;opacity:.8;margin-left:4px;}
+
+  .metric-card{padding:14px 16px;margin-bottom:0;}
+  .metric-card .meta{font-size:11.5px;color:var(--text-faint);font-family:var(--mono);margin:2px 0 14px;}
+  .chart-wrap{position:relative;height:440px;}
+  .empty-note{
+    position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+    color:var(--text-faint);font-size:12.5px;text-align:center;padding:0 20px;
+  }
+
+  .sandbox-note{
+    font-size:11.5px;color:var(--text-faint);font-family:var(--mono);
+    text-align:center;padding:18px 0 6px;line-height:1.6;
+  }
+
+  @media(max-width:700px){
+    header.topbar{padding:12px 16px;}
+    main{padding:16px;}
+    .chart-wrap{height:300px;}
+  }
+</style>
+</head>
+<body>
+
+<div id="app">
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark">SA</div>
+      <div class="brand-text"><b>Sandbox Analytics</b><span>AGUS · CWD Pumping Stations</span></div>
+    </div>
+    <div class="period-tabs" id="periodTabs">
+      <button data-period="weekly">Weekly</button>
+      <button data-period="monthly" class="active">Monthly</button>
+      <button data-period="yearly">Yearly</button>
+    </div>
+    <button class="theme-toggle" onclick="toggleTheme()" title="Toggle dark mode" aria-label="Toggle dark mode">
+      <span class="icon-moon">&#9789;</span>
+      <span class="icon-sun">&#9728;</span>
+    </button>
+  </header>
+
+  <main>
+    <div class="panel">
+      <div class="station-toolbar">
+        <h3 style="margin:0;">Pumping Stations <span class="hint" id="stationCount"></span></h3>
+        <div class="btns">
+          <button class="btn-ghost" onclick="selectAllStations()">Select all</button>
+          <button class="btn-ghost" onclick="deselectAllStations()">Deselect all</button>
+        </div>
+      </div>
+      <div class="chiprow" id="stationChips"></div>
+    </div>
+
+    <div class="panel">
+      <h3>Fleet Summary <span class="hint" id="statsHint"></span></h3>
+      <div class="stats-row" id="statsRow"></div>
+    </div>
+
+    <div class="panel metric-card">
+      <h3>Parameter <span class="hint" id="metricUnitHint"></span></h3>
+      <div class="metric-tabs" id="metricTabs"></div>
+      <div class="meta" id="metricMeta"></div>
+      <div class="chart-wrap"><canvas id="mainChart"></canvas></div>
+    </div>
+
+    <div class="sandbox-note">
+      Station list and baseline readings sourced from the Asset Management history-card workbook (Pumping Stations category, 21 stations) —<br>
+      each station starts from its own latest logged maintenance reading; the week-to-week/month-to-month trend is simulated pending a live telemetry feed.<br>
+      Swap <span class="mono">fetchTelemetry()</span> for a real endpoint to wire this dashboard up to continuous station data.
+    </div>
+  </main>
+</div>
+
+<script>
+// ===========================================================================
+// CONFIG — station list and baseline readings sourced from the AGUS Asset
+// Management history-card workbook (category: "Pumping Stations", i.e. every
+// tab whose code is 'PS' or falls outside Springs/Boosters/Reservoirs/Chlorine
+// House). Baselines are each station's latest complete maintenance-log
+// reading (motor output side, after VFD) — not invented figures.
+// "Lumbia PS" had no complete logged reading yet, so it falls back to the
+// fleet median until a real reading is logged.
+// ===========================================================================
+const STATIONS = [
+  'Bahabaha PS',
+  'Magsipit PS',
+  'Ocaña PS',
+  'Can-Asujan PS',
+  'San Roque PS',
+  'Langub PS',
+  'Relis PS',
+  'Riverside PS',
+  'Tapal PS',
+  'Takdog PS',
+  'Ylaya PS',
+  'Luanluan PS',
+  'Talamban Napo PS',
+  'Camagayan PS',
+  'Lumbia PS',
+  'Siervas PS',
+  'Hillside PS',
+  'Summerville PS',
+  'Lower Lagang PS',
+  'Proper Perrelos PS',
+  'Funrock Perrelos PS'
+];
+
+// voltage (V, avg of L1L2/L1L3/L2L3 after VFD), current (A, avg of 3 phases after VFD),
+// power (kW, calculated: √3 × V × I × 0.85 assumed PF — the log has no power reading),
+// discharge (L/s), pressure (psi), levelStatic / levelPumping (m) — all straight from
+// the most recent complete maintenance-log row per station.
+const BASELINES = {
+  'Bahabaha PS': { voltage:460.0, current:81.9, power:55.47, discharge:45.5, pressure:82.0, levelStatic:17.8, levelPumping:18.0 },
+  'Magsipit PS': { voltage:187.1, current:32.3, power:8.9, discharge:5.3, pressure:44.0, levelStatic:41.2, levelPumping:54.2 },
+  'Ocaña PS': { voltage:209.7, current:48.4, power:14.94, discharge:17.0, pressure:25.0, levelStatic:12.0, levelPumping:17.6 },
+  'Can-Asujan PS': { voltage:188.2, current:28.1, power:7.79, discharge:2.1, pressure:140.0, levelStatic:27.2, levelPumping:45.2 },
+  'San Roque PS': { voltage:221.4, current:13.7, power:4.47, discharge:1.4, pressure:64.0, levelStatic:15.7, levelPumping:25.4 },
+  'Langub PS': { voltage:198.8, current:34.6, power:10.13, discharge:5.1, pressure:170.0, levelStatic:9.4, levelPumping:9.7 },
+  'Relis PS': { voltage:430.7, current:37.5, power:23.78, discharge:13.2, pressure:110.0, levelStatic:9.5, levelPumping:31.8 },
+  'Riverside PS': { voltage:206.4, current:31.0, power:9.42, discharge:4.0, pressure:52.0, levelStatic:16.8, levelPumping:36.5 },
+  'Tapal PS': { voltage:472.0, current:82.9, power:57.61, discharge:21.3, pressure:195.0, levelStatic:30.7, levelPumping:36.7 },
+  'Takdog PS': { voltage:412.0, current:35.9, power:21.78, discharge:8.5, pressure:180.0, levelStatic:12.1, levelPumping:12.1 },
+  'Ylaya PS': { voltage:206.6, current:35.7, power:10.86, discharge:9.2, pressure:75.0, levelStatic:15.7, levelPumping:19.7 },
+  'Luanluan PS': { voltage:204.1, current:63.8, power:19.17, discharge:13.6, pressure:18.0, levelStatic:5.0, levelPumping:6.8 },
+  'Talamban Napo PS': { voltage:202.8, current:58.3, power:17.41, discharge:14.3, pressure:68.0, levelStatic:11.2, levelPumping:12.0 },
+  'Camagayan PS': { voltage:220.9, current:31.3, power:10.18, discharge:5.6, pressure:38.0, levelStatic:15.7, levelPumping:25.4 },
+  'Lumbia PS': { voltage:206.5, current:35.8, power:10.88, discharge:8.8, pressure:68.0, levelStatic:15.7, levelPumping:25.4 },
+  'Siervas PS': { voltage:198.3, current:28.4, power:8.29, discharge:3.7, pressure:120.0, levelStatic:20.6, levelPumping:28.0 },
+  'Hillside PS': { voltage:187.6, current:89.0, power:24.58, discharge:9.3, pressure:180.0, levelStatic:31.2, levelPumping:31.3 },
+  'Summerville PS': { voltage:227.3, current:19.8, power:6.63, discharge:2.1, pressure:60.0, levelStatic:15.0, levelPumping:25.4 },
+  'Lower Lagang PS': { voltage:220.0, current:67.6, power:21.9, discharge:17.8, pressure:35.0, levelStatic:27.7, levelPumping:27.7 },
+  'Proper Perrelos PS': { voltage:181.9, current:55.4, power:14.84, discharge:14.6, pressure:68.0, levelStatic:9.7, levelPumping:10.1 },
+  'Funrock Perrelos PS': { voltage:170.5, current:20.4, power:5.12, discharge:4.4, pressure:48.0, levelStatic:15.7, levelPumping:25.4 }
+};
+
+// Pump setting — the fixed depth (m) at which the pump is set inside the well
+// casing, from each station's WELL DATA nameplate spec (not a log reading).
+// It's the operational floor: if the pumping water level drops to/below this
+// depth, the pump risks running dry. "Lumbia PS" has no spec sheet value yet,
+// so it falls back to the fleet median like its other missing readings.
+const PUMP_SETTING = {
+  'Bahabaha PS': 27.0,
+  'Magsipit PS': 67.0,
+  'Ocaña PS': 52.0,
+  'Can-Asujan PS': 54.0,
+  'San Roque PS': 42.0,
+  'Langub PS': 27.0,
+  'Relis PS': 43.0,
+  'Riverside PS': 46.0,
+  'Tapal PS': 63.0,
+  'Takdog PS': 38.0,
+  'Ylaya PS': 31.0,
+  'Luanluan PS': 48.0,
+  'Talamban Napo PS': 24.0,
+  'Camagayan PS': 54.0,
+  'Lumbia PS': 42.5,
+  'Siervas PS': 36.0,
+  'Hillside PS': 42.0,
+  'Summerville PS': 56.0,
+  'Lower Lagang PS': 36.0,
+  'Proper Perrelos PS': 32.0,
+  'Funrock Perrelos PS': 48.0
+};
+
+// 21 stations need more than the 8 named theme colors to stay distinguishable
+// when several are selected at once — spread hues with the golden angle so
+// neighbours in the list never land on similar colors, and adjust lightness
+// per theme for contrast.
+function stationColor(station) {
+  const idx = STATIONS.indexOf(station);
+  const hue = Math.round((idx * 137.508) % 360);
+  const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const sat = 62;
+  const light = dark ? 68 : 42;
+  return `hsl(${hue}, ${sat}%, ${light}%)`;
+}
+
+const METRICS = [
+  { key: 'voltage',      label: 'Voltage',              unit: 'V',   color: '--teal',   meta: 'motor line voltage, output side of the VFD' },
+  { key: 'current',      label: 'Current',              unit: 'A',   color: '--blue',   meta: 'per-phase running current, output side of the VFD' },
+  { key: 'power',        label: 'Power',                unit: 'kW',  color: '--amber',  meta: 'calculated: √3 × V × I × 0.85 assumed power factor' },
+  { key: 'discharge',    label: 'Discharge',             unit: 'L/s', color: '--red',    meta: 'flow rate at the discharge line' },
+  { key: 'pressure',     label: 'Pressure',              unit: 'psi', color: '--green',  meta: 'discharge header pressure' },
+  { key: 'levelStatic',  label: 'Water Level — Static',  unit: 'm',   color: '--purple', meta: 'depth to water, pump at rest — dashed lines mark each station\'s pump setting depth' },
+  { key: 'levelPumping', label: 'Water Level — Pumping', unit: 'm',   color: '--orange', meta: 'depth to water while running — dashed lines mark each station\'s pump setting depth' }
+];
+
+const CHART_FONT = { family: "'IBM Plex Mono', monospace", size: 11 };
+const MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+// ===========================================================================
+// STATE — every station selectable at once; the chart compares whichever
+// parameter is active (tabs below) across all selected stations.
+// ===========================================================================
+const state = {
+  period: 'monthly',
+  metric: 'voltage',
+  selected: new Set(STATIONS)
+};
+
+function themeColor(varName, fallback) {
+  const v = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
+  return v || fallback;
+}
+
+function toggleTheme() {
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const next = isDark ? 'light' : 'dark';
+  if (next === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+  else document.documentElement.removeAttribute('data-theme');
+  try { localStorage.setItem('agus-theme', next); } catch (e) { /* ignore */ }
+  renderAll();
+}
+
+// ===========================================================================
+// SEEDED SAMPLE DATA — stand-in for a real telemetry API.
+// Swap fetchTelemetry() for a real fetch() call to the AGUS WPA backend
+// (or the CWD Energy Audit GAS API) and the rest of the dashboard is unchanged.
+// ===========================================================================
+function hashString(str) {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) { h = (Math.imul(31, h) + str.charCodeAt(i)) | 0; }
+  return h >>> 0;
+}
+function mulberry32(seed) {
+  return function () {
+    seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
+    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+const BUCKET_COUNT = { weekly: 12, monthly: 12, yearly: 6 };
+
+function buildLabels(period) {
+  const now = new Date();
+  const n = BUCKET_COUNT[period];
+  const labels = [];
+  for (let i = n - 1; i >= 0; i--) {
+    if (period === 'weekly') {
+      const d = new Date(now); d.setDate(d.getDate() - i * 7);
+      labels.push(MONTH_SHORT[d.getMonth()] + ' ' + d.getDate());
+    } else if (period === 'monthly') {
+      const d = new Date(now); d.setDate(1); d.setMonth(d.getMonth() - i);
+      labels.push(MONTH_SHORT[d.getMonth()] + ' ' + d.getFullYear());
+    } else {
+      const d = new Date(now); d.setFullYear(d.getFullYear() - i);
+      labels.push(String(d.getFullYear()));
+    }
+  }
+  return labels;
+}
+
+// baseline (real, from the latest logged maintenance reading per station) +
+// proportional noise + a mild seasonal wobble on the water-level series
+// (rainy-season groundwater recharge shows up as a shallower depth-to-water
+// around Jun-Nov). The per-period *trend* is simulated — the log only has
+// occasional maintenance-visit readings, not a continuous weekly series —
+// but every station starts from its own real baseline, not a generic one.
+function genSeries(station, metricKey, period) {
+  const rand = mulberry32(hashString(station + '::' + metricKey));
+  const n = BUCKET_COUNT[period];
+  const now = new Date();
+
+  const base = BASELINES[station][metricKey];
+
+  const noiseFrac = {
+    voltage: 0.03, current: 0.08, power: 0.1, discharge: 0.12,
+    pressure: 0.06, levelStatic: 0.04, levelPumping: 0.05
+  }[metricKey];
+  const noiseAmp = base * noiseFrac;
+
+  const drift = (rand() - 0.5) * noiseAmp * 0.6;
+  const values = [];
+  for (let i = n - 1; i >= 0; i--) {
+    let monthIdx;
+    if (period === 'weekly') { const d = new Date(now); d.setDate(d.getDate() - i * 7); monthIdx = d.getMonth(); }
+    else if (period === 'monthly') { const d = new Date(now); d.setMonth(d.getMonth() - i); monthIdx = d.getMonth(); }
+    else { monthIdx = 6; }
+
+    let seasonal = 0;
+    if (metricKey === 'levelStatic' || metricKey === 'levelPumping') {
+      seasonal = -Math.cos((monthIdx - 7) / 12 * 2 * Math.PI) * (noiseAmp * 1.3);
+    }
+    const noise = (rand() - 0.5) * noiseAmp * 2;
+    const trend = drift * ((n - 1 - i) / n);
+    values.push(Math.max(0, base + seasonal + noise + trend));
+  }
+  return values;
+}
+
+const dataCache = {}; // dataCache[period][metric][station] = number[]
+['weekly', 'monthly', 'yearly'].forEach(period => {
+  dataCache[period] = {};
+  METRICS.forEach(m => {
+    dataCache[period][m.key] = {};
+    STATIONS.forEach(s => { dataCache[period][m.key][s] = genSeries(s, m.key, period); });
+  });
+});
+
+// ===========================================================================
+// STATION CHIPS — multi-select: every one of the 21 pumping stations can be
+// toggled on/off (or Select all / Deselect all); all selected stations plot
+// together on the one chart below, for whichever parameter tab is active.
+// ===========================================================================
+function renderStationChips() {
+  const wrap = document.getElementById('stationChips');
+  wrap.innerHTML = STATIONS.map(s => {
+    const active = state.selected.has(s);
+    const dot = stationColor(s);
+    return `<div class="chip ${active ? 'active' : ''}" style="--dot:${dot};" onclick="toggleStation('${escapeAttr(s)}')">
+      <i></i>${escapeHtml(s)}
+    </div>`;
+  }).join('');
+  document.getElementById('stationCount').textContent = `${state.selected.size} of ${STATIONS.length} selected`;
+}
+function toggleStation(name) {
+  if (state.selected.has(name)) state.selected.delete(name); else state.selected.add(name);
+  renderAll();
+}
+function selectAllStations() { STATIONS.forEach(s => state.selected.add(s)); renderAll(); }
+function deselectAllStations() { state.selected.clear(); renderAll(); }
+
+// ===========================================================================
+// FLEET SUMMARY STATS (latest bucket, averaged/summed over selected stations)
+// ===========================================================================
+function renderStats() {
+  const row = document.getElementById('statsRow');
+  const labels = buildLabels(state.period);
+  document.getElementById('statsHint').textContent = 'latest ' + (labels[labels.length - 1] || '') + ' · selected stations';
+
+  const selected = STATIONS.filter(s => state.selected.has(s));
+  if (!selected.length) {
+    row.innerHTML = `<div class="stat" style="grid-column:1/-1;"><div class="sub" style="margin-top:0;">Select at least one station to see fleet totals.</div></div>`;
+    return;
+  }
+
+  function latestAvg(metricKey) {
+    const vals = selected.map(s => {
+      const arr = dataCache[state.period][metricKey][s];
+      return arr[arr.length - 1];
+    });
+    return vals.reduce((a, b) => a + b, 0) / vals.length;
+  }
+  function latestSum(metricKey) {
+    return selected.map(s => {
+      const arr = dataCache[state.period][metricKey][s];
+      return arr[arr.length - 1];
+    }).reduce((a, b) => a + b, 0);
+  }
+
+  const tiles = [
+    { label: 'Avg Voltage', value: latestAvg('voltage').toFixed(0), unit: 'V' },
+    { label: 'Avg Current', value: latestAvg('current').toFixed(1), unit: 'A' },
+    { label: 'Total Power', value: latestSum('power').toFixed(1), unit: 'kW' },
+    { label: 'Total Discharge', value: latestSum('discharge').toFixed(1), unit: 'L/s' },
+    { label: 'Avg Pressure', value: latestAvg('pressure').toFixed(0), unit: 'psi' },
+    { label: 'Avg Static Level', value: latestAvg('levelStatic').toFixed(1), unit: 'm' },
+    { label: 'Avg Pumping Level', value: latestAvg('levelPumping').toFixed(1), unit: 'm' }
+  ];
+
+  row.innerHTML = tiles.map(t => `
+    <div class="stat">
+      <div class="label">${t.label}</div>
+      <div class="value">${t.value}<span>${t.unit}</span></div>
+      <div class="sub">${selected.length} station${selected.length > 1 ? 's' : ''}</div>
+    </div>`).join('');
+}
+
+// ===========================================================================
+// SINGLE COMBINED CHART — one parameter at a time (tabs), one line per
+// selected station. Multi-station + multi-metric on one axis at once isn't
+// legible, so the tabs pick the shared unit and the chips pick who's on it.
+// ===========================================================================
+let mainChartInstance = null;
+
+function renderMetricTabs() {
+  const wrap = document.getElementById('metricTabs');
+  wrap.innerHTML = METRICS.map(m => `
+    <button type="button" class="metric-tab ${m.key === state.metric ? 'active' : ''}" onclick="selectMetric('${m.key}')">
+      ${m.label}<span class="unit">${m.unit}</span>
+    </button>`).join('');
+}
+function selectMetric(key) {
+  state.metric = key;
+  renderMetricTabs();
+  document.getElementById('metricMeta').textContent = METRICS.find(m => m.key === key).meta;
+  document.getElementById('metricUnitHint').textContent = METRICS.find(m => m.key === key).unit;
+  buildOrUpdateChart();
+}
+
+function buildOrUpdateChart() {
+  const canvas = document.getElementById('mainChart');
+  if (!canvas) return;
+  const metricKey = state.metric;
+
+  const labels = buildLabels(state.period);
+  const selected = STATIONS.filter(s => state.selected.has(s));
+
+  const wrap = canvas.parentElement;
+  let note = wrap.querySelector('.empty-note');
+  if (!selected.length) {
+    canvas.classList.add('hidden');
+    if (!note) { note = document.createElement('div'); note.className = 'empty-note'; wrap.appendChild(note); }
+    note.textContent = 'Select at least one station to plot this parameter';
+    if (mainChartInstance) { mainChartInstance.destroy(); mainChartInstance = null; }
+    return;
+  }
+  canvas.classList.remove('hidden');
+  if (note) note.remove();
+
+  const tickColor = themeColor('--text-faint', '#8fafb5');
+  const gridColor = themeColor('--border-soft', '#e6f0f1');
+  const unit = METRICS.find(m => m.key === metricKey).unit;
+
+  const datasets = selected.map(s => {
+    const color = stationColor(s);
+    return {
+      label: s,
+      data: dataCache[state.period][metricKey][s],
+      borderColor: color,
+      backgroundColor: color,
+      borderWidth: 2,
+      tension: 0.3,
+      pointRadius: 2.5,
+      pointHoverRadius: 5,
+      fill: false
+    };
+  });
+
+  // Water-level views get a dashed reference line per selected station at its
+  // pump setting depth — the fixed intake depth from the asset spec sheet,
+  // not a log reading. Lets you see the margin before a station risks
+  // pumping the well below its intake.
+  const isLevelMetric = metricKey === 'levelStatic' || metricKey === 'levelPumping';
+  if (isLevelMetric) {
+    selected.forEach(s => {
+      const color = stationColor(s);
+      datasets.push({
+        label: s + ' — Pump Setting',
+        data: labels.map(() => PUMP_SETTING[s]),
+        borderColor: color,
+        backgroundColor: color,
+        borderWidth: 1.5,
+        borderDash: [6, 4],
+        pointRadius: 0,
+        pointHoverRadius: 3,
+        tension: 0,
+        fill: false
+      });
+    });
+  }
+
+  if (mainChartInstance) mainChartInstance.destroy();
+  mainChartInstance = new Chart(canvas, {
+    type: 'line',
+    data: { labels, datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'nearest', intersect: false },
+      plugins: {
+        legend: { position: 'top', labels: { color: themeColor('--text-muted', '#57777d'), font: CHART_FONT, boxWidth: 10, padding: 8, usePointStyle: true, filter: (item) => !item.text.includes('Pump Setting') } },
+        tooltip: { titleFont: CHART_FONT, bodyFont: CHART_FONT, callbacks: { label: (ctx) => `${ctx.dataset.label}: ${ctx.parsed.y.toFixed(2)} ${unit}` } }
+      },
+      scales: {
+        x: { ticks: { color: tickColor, font: CHART_FONT, maxRotation: 0, autoSkip: true }, grid: { color: gridColor } },
+        y: { ticks: { color: tickColor, font: CHART_FONT }, grid: { color: gridColor }, title: { display: true, text: unit, color: tickColor, font: CHART_FONT } }
+      }
+    }
+  });
+}
+
+function renderAll() {
+  renderStationChips();
+  renderStats();
+  renderMetricTabs();
+  document.getElementById('metricMeta').textContent = METRICS.find(m => m.key === state.metric).meta;
+  document.getElementById('metricUnitHint').textContent = METRICS.find(m => m.key === state.metric).unit;
+  buildOrUpdateChart();
+}
+
+// ===========================================================================
+// UTIL + INIT
+// ===========================================================================
+function escapeHtml(str) {
+  return String(str ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+function escapeAttr(str) { return escapeHtml(str); }
+
+document.getElementById('periodTabs').addEventListener('click', (e) => {
+  const btn = e.target.closest('button[data-period]');
+  if (!btn) return;
+  document.querySelectorAll('#periodTabs button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  state.period = btn.dataset.period;
+  renderAll();
+});
+
+renderAll();
+</script>
+</body>
+</html>
