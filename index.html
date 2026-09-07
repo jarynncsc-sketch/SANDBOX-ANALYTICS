@@ -287,6 +287,10 @@
   .metric-card{padding:10px 12px;margin-bottom:0;}
   .metric-card .meta{font-size:10.5px;color:var(--text-faint);font-family:var(--mono);margin:2px 0 10px;}
   .chart-wrap{position:relative;height:470px;}
+  .chart-with-well{display:flex;gap:0;align-items:stretch;}
+  .chart-with-well .chart-wrap{flex:1 1 auto;min-width:0;}
+  .well-fig{flex:0 1 5%;min-width:96px;max-width:150px;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;background:var(--bg-panel);position:relative;}
+  .well-fig svg{display:block;width:100%;height:100%;}
   .empty-note{
     position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
     color:var(--text-faint);font-size:12.5px;text-align:center;padding:0 20px;
@@ -477,7 +481,10 @@
             </div>
           </div>
           <div class="meta" id="metricMeta"></div>
-          <div class="chart-wrap" id="trendChartWrap"><canvas id="mainChart"></canvas></div>
+          <div class="chart-with-well" id="chartWithWell">
+            <div class="chart-wrap" id="trendChartWrap"><canvas id="mainChart"></canvas></div>
+            <div class="well-fig" id="wellFig" style="display:none;"></div>
+          </div>
           <div class="rank-list" id="compareView" style="display:none;"></div>
           <div id="heatmapView" style="display:none;"></div>
         </div>
@@ -1272,16 +1279,147 @@ function buildOrUpdateChart() {
   });
 }
 
+// ===========================================================================
+// BOREHOLE WELL FIGURE — cross-section beside the trend chart (level metrics)
+// ===========================================================================
+function renderWellFigure() {
+  const fig = document.getElementById('wellFig');
+  const selected = STATIONS.filter(s => state.selected.has(s));
+  const keys = selectedMetricKeys();
+  const hasLevel = keys.some(k => k === 'levelStatic' || k === 'levelPumping');
+
+  if (state.view !== 'trend' || !hasLevel || !selected.length) {
+    if (fig) fig.style.display = 'none';
+    return;
+  }
+
+  const staticAvg = selected.reduce((a, s) => {
+    const arr = dataCache[state.period].levelStatic[s];
+    return a + (arr[arr.length - 1] || 0);
+  }, 0) / selected.length;
+  const pumpAvg = selected.reduce((a, s) => {
+    const arr = dataCache[state.period].levelPumping[s];
+    return a + (arr[arr.length - 1] || 0);
+  }, 0) / selected.length;
+  const setAvg = selected.reduce((a, s) => a + (PUMP_SETTING[s] || 0), 0) / selected.length;
+  const drawdown = Math.max(0, staticAvg - pumpAvg);
+
+  const depthMax = Math.max(setAvg, staticAvg, pumpAvg) * 1.18 + 4;
+
+  // Auto-adapt to the panel's actual width so labels never truncate: the SVG
+  // uses a fixed-height portrait viewBox whose width scales with the 5% slot.
+  const wrapEl = document.getElementById('chartWithWell');
+  const wrapW = wrapEl ? wrapEl.clientWidth : 0;
+  // The figure occupies ~5% of the flex parent (capped), minus gap.
+  const panelW = Math.max(96, Math.min(150, Math.round((wrapW * 0.05))));
+  const baseW = 185;
+  const scale = panelW / baseW;
+  const H = 470;
+  const W = Math.max(130, Math.round(baseW * scale));
+  const top = 42;
+  // Borehole sits toward the right; labels get the full left column so text
+  // has room at any width and never truncates.
+  const x0 = Math.round(116 * scale);
+  const boreW = Math.max(18, Math.round(26 * scale));
+  const y = d => top + (d / depthMax) * (H - top - 20);
+
+  const tickColor = themeColor('--text-faint', '#9aa0bd');
+  const textColor = themeColor('--text-muted', '#5a6180');
+  const borderC = themeColor('--border', '#e2e5f0');
+  const teal = themeColor('--teal', '#6d5ae0');
+  const orange = themeColor('--orange', '#ff8c42');
+  const purple = themeColor('--purple', '#9a6bff');
+  const blue = themeColor('--blue', '#3aa1e0');
+  const waterFill = hexToRgba(themeColor('--teal', '#6d5ae0'), 0.18);
+
+  const groundY = y(0);
+  const staticY = y(Math.max(0.0001, staticAvg));
+  const pumpY = y(Math.max(0.0001, pumpAvg));
+  const setY = y(Math.max(0.0001, setAvg));
+  const bottomY = y(depthMax);
+
+  const ticks = [];
+  const step = depthMax > 60 ? 20 : depthMax > 30 ? 10 : 5;
+  for (let d = step; d <= depthMax; d += step) {
+    const yy = y(d);
+    ticks.push(`<line x1="${x0 + boreW + 3}" y1="${yy}" x2="${x0 + boreW + 8}" y2="${yy}" stroke="${tickColor}" stroke-width="1"/>
+      <text x="${x0 + boreW + 10}" y="${yy + 3}" fill="${tickColor}" font-size="${(7.5 * scale).toFixed(1)}" font-family="var(--mono)">${d}</text>`);
+  }
+
+  const label = (yy, fill, txt) => `<line x1="${x0 - 4}" y1="${yy}" x2="${x0 + boreW + 4}" y2="${yy}" stroke="${fill}" stroke-width="1.6" stroke-dasharray="6 4"/>
+    <text x="${Math.round(4 * scale)}" y="${yy + 3}" fill="${fill}" font-size="${(8 * scale).toFixed(1)}" font-weight="600" font-family="var(--mono)">${txt}</text>`;
+
+  fig.innerHTML = `
+  <svg viewBox="0 0 ${W} ${H}" style="background:var(--bg-panel);width:100%;" preserveAspectRatio="xMidYMid meet">
+    <defs>
+      <linearGradient id="wellSoil" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="${hexToRgba(themeColor('--amber', '#f0a63c'), 0.16)}"/>
+        <stop offset="100%" stop-color="${hexToRgba(themeColor('--amber', '#f0a63c'), 0.05)}"/>
+      </linearGradient>
+      <clipPath id="wellClip"><rect x="${x0 - 6}" y="${groundY}" width="${boreW + 12}" height="${bottomY - groundY}"/></clipPath>
+    </defs>
+
+    <rect x="0" y="0" width="${W}" height="${H}" fill="url(#wellSoil)"/>
+
+    <text x="${W / 2}" y="${Math.round(15 * scale)}" fill="${textColor}" font-size="${(9 * scale).toFixed(1)}" font-weight="600" text-anchor="middle" font-family="var(--mono)">WELL CROSS-SECTION</text>
+
+    <line x1="6" y1="${groundY}" x2="${W - 6}" y2="${groundY}" stroke="${borderC}" stroke-width="2"/>
+    <text x="${Math.round(8 * scale)}" y="${groundY - 4}" fill="${textColor}" font-size="${(7.5 * scale).toFixed(1)}" font-family="var(--mono)">GROUND</text>
+
+    <rect x="${x0}" y="${groundY}" width="${boreW}" height="${bottomY - groundY}" fill="none" stroke="${borderC}" stroke-width="2"/>
+
+    <g clip-path="url(#wellClip)">
+      <rect x="${x0}" y="${pumpY}" width="${boreW}" height="${bottomY - pumpY}" fill="${waterFill}"/>
+    </g>
+
+    <rect x="${x0 + boreW / 2 - 9}" y="${setY - 5}" width="18" height="24" rx="3" fill="${blue}" opacity="0.9"/>
+    <circle cx="${x0 + boreW / 2}" cy="${setY + 5}" r="3.5" fill="#ffffff"/>
+    <path d="M${x0 + boreW / 2 - 4} ${setY + 21}h8l-2 7h-4z" fill="${blue}"/>
+
+    ${label(staticY, teal, 'STATIC WL ' + staticAvg.toFixed(1) + 'm')}
+    ${label(pumpY, orange, 'PUMPING WL ' + pumpAvg.toFixed(1) + 'm')}
+    ${label(setY, purple, 'PUMP SET ' + setAvg.toFixed(1) + 'm')}
+
+    <text x="${W / 2}" y="${bottomY - 2}" fill="${tickColor}" font-size="${(8 * scale).toFixed(1)}" text-anchor="middle" font-family="var(--mono)">DRAWDOWN ${drawdown.toFixed(1)}m</text>
+    ${ticks.join('')}
+  </svg>`;
+
+  fig.style.display = 'block';
+}
+
+function hexToRgba(hex, alpha) {
+  const h = String(hex || '').replace('#', '');
+  if (h.length === 3) return hexToRgba(h.split('').map(c => c + c).join(''), alpha);
+  if (h.length !== 6) return 'rgba(109,90,224,' + alpha + ')';
+  const n = parseInt(h, 16);
+  return `rgba(${n >> 16}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
+}
+
 function renderAll() {
   renderStationChips();
   renderStats();
   renderMetricTabs();
   renderAlerts();
   updateMetricHeader();
-  if (state.view === 'trend') buildOrUpdateChart();
-  else if (state.view === 'compare') renderCompareView();
-  else renderHeatmapView();
+  if (state.view === 'trend') { buildOrUpdateChart(); renderWellFigure(); }
+  else if (state.view === 'compare') { renderCompareView(); renderWellFigure(); }
+  else { renderHeatmapView(); renderWellFigure(); }
 }
+
+(function () {
+  if (typeof ResizeObserver === 'undefined') return;
+  const wrap = document.getElementById('chartWithWell');
+  if (!wrap) return;
+  let timer = null;
+  let lastW = 0;
+  new ResizeObserver(() => {
+    const w = wrap.clientWidth;
+    if (Math.abs(w - lastW) < 4) return;
+    lastW = w;
+    clearTimeout(timer);
+    timer = setTimeout(() => renderWellFigure(), 60);
+  }).observe(wrap);
+})();
 
 // ===========================================================================
 // UTIL
@@ -1301,9 +1439,9 @@ function setView(view) {
   document.getElementById('compareView').style.display = view === 'compare' ? '' : 'none';
   document.getElementById('heatmapView').style.display = view === 'heatmap' ? '' : 'none';
   
-  if (view === 'trend') buildOrUpdateChart();
-  else if (view === 'compare') renderCompareView();
-  else renderHeatmapView();
+  if (view === 'trend') { buildOrUpdateChart(); renderWellFigure(); }
+  else if (view === 'compare') { renderCompareView(); renderWellFigure(); }
+  else { renderHeatmapView(); renderWellFigure(); }
 }
 
 document.getElementById('viewToggle').addEventListener('click', (e) => {
