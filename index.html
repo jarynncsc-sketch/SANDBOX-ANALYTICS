@@ -558,6 +558,18 @@ let PUMP_SETTING = {
   'Lower Lagang PS': 36.0, 'Proper Perrelos PS': 32.0, 'Funrock Perrelos PS': 48.0
 };
 
+// Total borehole/well depth per station. Overwritten per station when live
+// data is loaded (from the asset sheet's "WELL DEPTH"-style spec cells,
+// falling back to these manual values). Always at or below the pump setting.
+let WELL_DEPTH = {
+  'Bahabaha PS': 46.0, 'Magsipit PS': 88.0, 'Ocaña PS': 74.0, 'Can-Asujan PS': 76.0,
+  'San Roque PS': 64.0, 'Langub PS': 44.0, 'Relis PS': 65.0, 'Riverside PS': 68.0,
+  'Tapal PS': 85.0, 'Takdog PS': 60.0, 'Ylaya PS': 53.0, 'Luanluan PS': 70.0,
+  'Talamban Napo PS': 46.0, 'Camagayan PS': 76.0, 'Lumbia PS': 64.5,
+  'Siervas PS': 58.0, 'Hillside PS': 64.0, 'Summerville PS': 78.0,
+  'Lower Lagang PS': 58.0, 'Proper Perrelos PS': 54.0, 'Funrock Perrelos PS': 70.0
+};
+
 // Thresholds for alerts (min/max healthy ranges)
 const THRESHOLDS = {
   voltage: { min: 180, max: 480, criticalMin: 170, criticalMax: 500 },
@@ -1302,9 +1314,10 @@ function renderWellFigure() {
     return a + (arr[arr.length - 1] || 0);
   }, 0) / selected.length;
   const setAvg = selected.reduce((a, s) => a + (PUMP_SETTING[s] || 0), 0) / selected.length;
+  const wellAvg = selected.reduce((a, s) => a + (WELL_DEPTH[s] || 0), 0) / selected.length;
   const drawdown = Math.max(0, staticAvg - pumpAvg);
 
-  const depthMax = Math.max(setAvg, staticAvg, pumpAvg) * 1.18 + 4;
+  const depthMax = wellAvg > 0 ? wellAvg * 1.06 : Math.max(setAvg, staticAvg, pumpAvg) * 1.18 + 4;
 
   // Auto-adapt to the panel's actual width so labels never truncate: the SVG
   // uses a fixed-height portrait viewBox whose width scales with the 5% slot.
@@ -1381,6 +1394,7 @@ function renderWellFigure() {
     ${label(setY, purple, 'PUMP SET ' + setAvg.toFixed(1) + 'm')}
 
     <text x="${W / 2}" y="${bottomY - 2}" fill="${tickColor}" font-size="${(8 * scale).toFixed(1)}" text-anchor="middle" font-family="var(--mono)">DRAWDOWN ${drawdown.toFixed(1)}m</text>
+    <text x="${W / 2}" y="${bottomY + 14}" fill="${tickColor}" font-size="${(8 * scale).toFixed(1)}" text-anchor="middle" font-family="var(--mono)">WELL DEPTH ${wellAvg.toFixed(1)}m</text>
     ${ticks.join('')}
   </svg>`;
 
@@ -1761,6 +1775,21 @@ function pumpSettingFromSpecs(specs, fallback) {
   return val !== null ? val : (fallback || 50);
 }
 
+function wellDepthFromSpecs(specs, fallback) {
+  let val = null;
+  (specs || []).forEach(s => {
+    // Only the literal "WELL DEPTH" label (or equivalent) under a well/bore
+    // section — not static WL, pumping WL, or setting, which are shallower.
+    const isSection = /WELL|BORE|BOREHOLE/i.test(String(s.section));
+    const isLabel = /WELL DEPTH|BOREHOLE DEPTH|TOTAL DEPTH|WELL DEPTH M/i.test(String(s.label));
+    if (isSection && isLabel) {
+      const v = gasNum(String(s.value));
+      if (v !== null && v > 0) val = v;
+    }
+  });
+  return val !== null ? val : (fallback || 60);
+}
+
 async function loadLiveData() {
   try {
     updateDataStatus('Connecting to GAS…');
@@ -1773,6 +1802,7 @@ async function loadLiveData() {
     ));
 
     const origSettings = Object.assign({}, PUMP_SETTING);
+    const origDepths = Object.assign({}, WELL_DEPTH);
     const live = {};
     PERIODS.forEach(p => {
       live[p] = {};
@@ -1781,6 +1811,7 @@ async function loadLiveData() {
 
     const stationNames = [];
     const pumpSettings = {};
+    const wellDepths = {};
     let readings = 0;
 
     details.forEach(d => {
@@ -1790,6 +1821,7 @@ async function loadLiveData() {
       if (!name) return;
       stationNames.push(name);
       pumpSettings[name] = pumpSettingFromSpecs(asset.specs, origSettings[name]);
+      wellDepths[name] = wellDepthFromSpecs(asset.specs, origDepths[name]);
       const log = Array.isArray(asset.log) ? asset.log : [];
       readings += log.length;
       METRICS.forEach(m => {
@@ -1816,6 +1848,7 @@ async function loadLiveData() {
 
     STATIONS = stationNames;
     PUMP_SETTING = pumpSettings;
+    WELL_DEPTH = wellDepths;
     PERIODS.forEach(p => { dataCache[p] = live[p]; });
     state.selected = new Set(STATIONS);
     updateDataStatus(stationNames.length + ' stations · ' + readings + ' log entries');
