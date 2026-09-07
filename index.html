@@ -836,6 +836,15 @@ function renderStats() {
     }).reduce((a, b) => a + b, 0);
   }
 
+  function latestDrawdownAvg() {
+    const vals = selected.map(s => {
+      const staticArr = dataCache[state.period].levelStatic[s];
+      const pumpArr = dataCache[state.period].levelPumping[s];
+      return Math.abs((staticArr[staticArr.length - 1] || 0) - (pumpArr[pumpArr.length - 1] || 0));
+    });
+    return vals.reduce((a, b) => a + b, 0) / vals.length;
+  }
+
   function getTrend(metricKey) {
     if (state.period === 'yearly') return 'flat';
     const current = latestAvg(metricKey);
@@ -866,12 +875,13 @@ function renderStats() {
     { label: 'Total Discharge', value: latestSum('discharge').toFixed(1), unit: 'L/s', metric: 'discharge' },
     { label: 'Avg Pressure', value: latestAvg('pressure').toFixed(0), unit: 'psi', metric: 'pressure' },
     { label: 'Avg Static Level', value: latestAvg('levelStatic').toFixed(1), unit: 'm', metric: 'levelStatic' },
-    { label: 'Avg Pumping Level', value: latestAvg('levelPumping').toFixed(1), unit: 'm', metric: 'levelPumping' }
+    { label: 'Avg Pumping Level', value: latestAvg('levelPumping').toFixed(1), unit: 'm', metric: 'levelPumping' },
+    { label: 'Avg Drawdown', value: latestDrawdownAvg().toFixed(1), unit: 'm', metric: '' }
   ];
 
   row.innerHTML = tiles.map(t => `
-    <div class="stat" onclick="selectMetric('${t.metric}')" style="cursor:pointer;" title="Click to view ${t.label} chart">
-      ${trendIcon(getTrend(t.metric))}
+    <div class="stat" ${t.metric ? `onclick="selectMetric('${t.metric}')" style="cursor:pointer;" title="Click to view ${t.label} chart"` : ''}>
+      ${t.metric ? trendIcon(getTrend(t.metric)) : ''}
       <div class="label">${t.label}</div>
       <div class="value">${t.value}<span>${t.unit}</span></div>
       <div class="sub">${selected.length} station${selected.length > 1 ? 's' : ''}</div>
