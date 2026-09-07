@@ -286,7 +286,7 @@
 
   .metric-card{padding:10px 12px;margin-bottom:0;}
   .metric-card .meta{font-size:10.5px;color:var(--text-faint);font-family:var(--mono);margin:2px 0 10px;}
-  .chart-wrap{position:relative;height:420px;}
+  .chart-wrap{position:relative;height:470px;}
   .empty-note{
     position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
     color:var(--text-faint);font-size:12.5px;text-align:center;padding:0 20px;
@@ -297,20 +297,20 @@
     text-align:center;padding:12px 0 4px;line-height:1.5;
   }
 
-  .metric-card-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:nowrap;margin-bottom:10px;}
-  .view-toggle{display:flex;gap:3px;background:var(--bg-panel);border:1px solid var(--border);border-radius:8px;padding:2px;}
+  .metric-card-toolbar{display:flex;align-items:center;gap:6px;flex-wrap:nowrap;margin-bottom:6px;}
+  .view-toggle{display:flex;gap:2px;background:var(--bg-panel);border:1px solid var(--border);border-radius:8px;padding:2px;flex-shrink:0;}
   .view-toggle button{
-    padding:5px 10px;border-radius:5px;border:none;background:transparent;
+    padding:4px 8px;border-radius:5px;border:none;background:transparent;
     color:var(--text-muted);font-size:11px;font-weight:600;white-space:nowrap;transition:all .15s;
     display:inline-flex;align-items:center;gap:4px;
   }
   .view-toggle button:hover{color:var(--text);}
   .view-toggle button.active{color:#fff;background:var(--teal);}
-  .toolbar-actions{display:flex;gap:6px;margin-left:auto;}
+  .toolbar-actions{display:flex;gap:5px;margin-left:auto;flex-shrink:0;}
   .btn-icon{
     display:inline-flex;align-items:center;gap:4px;
-    padding:5px 10px;border-radius:6px;border:1px solid var(--border);background:transparent;
-    color:var(--text-muted);font-size:11px;font-weight:600;transition:all .15s;
+    padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;
+    color:var(--text-muted);font-size:11px;font-weight:600;transition:all .15s;white-space:nowrap;
   }
   .btn-icon:hover{color:var(--teal);border-color:var(--teal);}
   .btn-icon:active{transform:scale(0.97);}
@@ -361,14 +361,6 @@
     max-width:200px;
   }
   .tooltip-custom.visible{opacity:1;}
-
-  .alert-banner{
-    display:none;padding:8px 12px;background:var(--amber-dim);border:1px solid var(--amber);
-    border-radius:6px;margin-bottom:8px;font-size:11px;color:var(--amber);
-    font-weight:600;align-items:center;gap:6px;
-  }
-  .alert-banner.visible{display:flex;}
-  .alert-banner svg{flex-shrink:0;}
 
   @media print{
     header.topbar .period-tabs, header.topbar .theme-toggle, header.topbar .search-box,
@@ -438,14 +430,6 @@
       </aside>
 
       <div class="content-col">
-        <div class="alert-banner" id="alertBanner">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/>
-            <path d="M12 9v4"/><path d="M12 17h.01"/>
-          </svg>
-          <span id="alertText"></span>
-        </div>
-
         <div class="panel">
           <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px;">
             <h3 style="margin:0;white-space:nowrap;font-size:9px;">Fleet Summary <span class="hint" id="statsHint"></span></h3>
@@ -457,8 +441,8 @@
         </div>
 
         <div class="panel metric-card">
-          <h3>Parameter</h3>
           <div class="metric-card-toolbar">
+            <h3 style="margin:0 8px 0 0;white-space:nowrap;font-size:9px;">Parameter</h3>
             <div class="view-toggle" id="viewToggle">
               <button data-view="trend" class="active">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -714,6 +698,11 @@ function getStationOverallStatus(station) {
   const statuses = METRICS.map(m => getStationStatus(station, m.key));
   if (statuses.includes('critical')) return 'critical';
   if (statuses.includes('warning')) return 'warning';
+
+  const pumpingArr = dataCache[state.period].levelPumping[station];
+  const pumpingLatest = pumpingArr[pumpingArr.length - 1];
+  if (PUMP_SETTING[station] - pumpingLatest < 5) return 'critical';
+
   return 'online';
 }
 
@@ -883,34 +872,9 @@ function renderStats() {
 }
 
 // ===========================================================================
-// ALERT BANNER
+// ALERT BANNER (removed)
 // ===========================================================================
-function renderAlerts() {
-  const selected = STATIONS.filter(s => state.selected.has(s));
-  const alerts = [];
-
-  selected.forEach(s => {
-    METRICS.forEach(m => {
-      const val = dataCache[state.period][m.key][s];
-      const latest = val[val.length - 1];
-      const threshold = THRESHOLDS[m.key];
-      
-      if (latest < threshold.criticalMin || latest > threshold.criticalMax) {
-        alerts.push(`${s}: ${m.label} critical (${latest.toFixed(1)} ${m.unit})`);
-      }
-    });
-  });
-
-  const banner = document.getElementById('alertBanner');
-  const text = document.getElementById('alertText');
-  
-  if (alerts.length > 0) {
-    text.textContent = alerts.length === 1 ? alerts[0] : `${alerts.length} critical alerts detected`;
-    banner.classList.add('visible');
-  } else {
-    banner.classList.remove('visible');
-  }
-}
+function renderAlerts() {}
 
 // ===========================================================================
 // METRIC TABS
@@ -1005,15 +969,29 @@ function buildOrUpdateChart() {
   const multi = keys.length > 1;
   let datasets;
 
+  const levelKey = (k) => k === 'levelStatic' || k === 'levelPumping';
+  const levelAxisId = 'ylevel';
+  const axisId = {};
+  {
+    let n = 0;
+    keys.forEach(k => {
+      if (levelKey(k)) axisId[k] = levelAxisId;
+      else { n += 1; axisId[k] = n <= 1 ? 'y' : 'y' + n; }
+    });
+  }
+
   if (multi) {
-    datasets = keys.map((key, i) => {
+
+    datasets = keys.map((key) => {
       const m = METRICS.find(x => x.key === key);
       const color = themeColor(m.color, '#6d5ae0');
       const avg = labels.map((_, t) => {
         const vals = selected.map(s => dataCache[state.period][key][s][t]);
         return vals.reduce((a, b) => a + b, 0) / vals.length;
       });
+      const isLevel = levelKey(key);
       return {
+        id: 'ds-' + key,
         label: `${m.label} (${m.unit})`,
         data: avg,
         borderColor: color,
@@ -1027,16 +1005,16 @@ function buildOrUpdateChart() {
         pointBorderColor: themeColor('--bg-card', '#ffffff'),
         pointBorderWidth: 1.5,
         fill: false,
-        yAxisID: i === 0 ? 'y' : 'y' + i,
+        yAxisID: axisId[key],
         order: 1
       };
     });
 
-    keys.forEach((key, i) => {
-      if (key !== 'levelStatic' && key !== 'levelPumping') return;
+    if (keys.some(levelKey)) {
       selected.forEach(s => {
         const color = stationColor(s);
         datasets.push({
+          id: 'ps-' + s,
           label: s + ' · Pump Setting',
           data: labels.map(() => PUMP_SETTING[s]),
           borderColor: color,
@@ -1047,17 +1025,53 @@ function buildOrUpdateChart() {
           pointHoverRadius: 3,
           tension: 0,
           fill: false,
-          yAxisID: i === 0 ? 'y' : 'y' + i,
+          yAxisID: levelAxisId,
           order: 2
         });
       });
-    });
+    }
+
+    const staticDs = datasets.find(d => d.id === 'ds-levelStatic');
+    const pumpDs = datasets.find(d => d.id === 'ds-levelPumping');
+
+    if (pumpDs) {
+      selected.forEach(s => {
+        const psIdx = datasets.findIndex(d => d.id === 'ps-' + s);
+        if (psIdx < 0) return;
+        datasets.splice(psIdx + 1, 0, {
+          id: 'dd-fill-' + s,
+          label: '',
+          data: pumpDs.data,
+          borderColor: 'transparent',
+          backgroundColor: 'rgba(34,200,232,0.28)',
+          borderWidth: 0,
+          pointRadius: 0,
+          pointHoverRadius: 0,
+          tension: 0.35,
+          cubicInterpolationMode: 'monotone',
+          fill: '-1',
+          yAxisID: levelAxisId,
+          order: 0
+        });
+      });
+    }
+
+    if (staticDs && pumpDs) {
+      let si = datasets.indexOf(staticDs);
+      const pi = datasets.indexOf(pumpDs);
+      datasets.splice(pi, 1);
+      si = datasets.indexOf(staticDs);
+      datasets.splice(si + 1, 0, pumpDs);
+      pumpDs.fill = '-1';
+      pumpDs.backgroundColor = 'rgba(240,166,60,0.30)';
+    }
   } else {
     const metricKey = keys[0];
     const few = selected.length <= 3;
     const lineWidth = selected.length <= 3 ? 3 : selected.length <= 8 ? 2.25 : 1.75;
     const ptRadius = selected.length <= 8 ? 3 : 0;
     const fillColor = isDark ? 'rgba(69,216,245,0.28)' : 'rgba(34,200,232,0.22)';
+    const isLevelMetric = metricKey === 'levelStatic' || metricKey === 'levelPumping';
 
     datasets = selected.map(s => {
       const color = stationColor(s);
@@ -1075,16 +1089,16 @@ function buildOrUpdateChart() {
         pointBorderColor: themeColor('--bg-card', '#ffffff'),
         pointBorderWidth: 1.5,
         pointHoverBorderWidth: 2,
-        fill: few,
+        fill: isLevelMetric ? false : few,
         order: 1
       };
     });
 
-    const isLevelMetric = metricKey === 'levelStatic' || metricKey === 'levelPumping';
     if (isLevelMetric) {
       selected.forEach(s => {
         const color = stationColor(s);
         datasets.push({
+          id: 'ps-' + s,
           label: s + ' — Pump Setting',
           data: labels.map(() => PUMP_SETTING[s]),
           borderColor: color,
@@ -1097,6 +1111,20 @@ function buildOrUpdateChart() {
           fill: false,
           order: 2
         });
+        datasets.push({
+          id: 'dd-single-' + s,
+          label: '',
+          data: dataCache[state.period][metricKey][s],
+          borderColor: 'transparent',
+          backgroundColor: 'rgba(34,200,232,0.28)',
+          borderWidth: 0,
+          pointRadius: 0,
+          pointHoverRadius: 0,
+          tension: 0.35,
+          cubicInterpolationMode: 'monotone',
+          fill: '-1',
+          order: 0
+        });
       });
     }
   }
@@ -1104,28 +1132,45 @@ function buildOrUpdateChart() {
   let yScales;
   if (multi) {
     yScales = {};
-    keys.forEach((key, i) => {
-      const m = METRICS.find(x => x.key === key);
-      const id = i === 0 ? 'y' : 'y' + i;
-      yScales[id] = {
+    const levelKey = (k) => k === 'levelStatic' || k === 'levelPumping';
+    const hasLevel = keys.some(levelKey);
+    if (hasLevel) {
+      yScales.ylevel = {
         type: 'linear',
-        position: i === 0 ? 'left' : 'right',
+        position: 'left',
+        reverse: true,
+        min: 0,
         border: { color: gridColor },
         ticks: { color: tickColor, font: { family: CHART_FONT.family, size: 10.5 } },
-        grid: i === 0
-          ? { color: gridColor, drawTicks: false, borderDash: [3, 4] }
-          : { drawOnChartArea: false },
-        title: { display: true, text: m.label + ' (' + m.unit + ')', color: themeColor(m.color, '#6d5ae0'), font: { family: CHART_FONT.family, size: 10.5 } }
+        grid: { color: gridColor, drawTicks: false, borderDash: [3, 4] },
+        title: { display: true, text: 'Water Level (m) — depth below surface', color: themeColor('--purple', '#6d5ae0'), font: { family: CHART_FONT.family, size: 10 } }
+      };
+    }
+    keys.forEach((key) => {
+      if (levelKey(key)) return;
+      const m = METRICS.find(x => x.key === key);
+      const id = axisId[key];
+      yScales[id] = {
+        type: 'linear',
+        position: hasLevel ? 'right' : 'left',
+        border: { color: gridColor },
+        ticks: { color: tickColor, font: { family: CHART_FONT.family, size: 10.5 } },
+        grid: { drawOnChartArea: false },
+        title: { display: true, text: m.label + ' (' + m.unit + ')', color: themeColor(m.color, '#6d5ae0'), font: { family: CHART_FONT.family, size: 10 } }
       };
     });
   } else {
     const unit = METRICS.find(m => m.key === keys[0]).unit;
+    const isLevel = keys[0] === 'levelStatic' || keys[0] === 'levelPumping';
     yScales = {
       y: {
+        type: 'linear',
+        reverse: isLevel,
+        min: isLevel ? 0 : undefined,
         border: { color: gridColor },
         ticks: { color: tickColor, font: { family: CHART_FONT.family, size: 11.5 }, padding: 8 },
         grid: { color: gridColor, drawTicks: false, borderDash: [3, 4] },
-        title: { display: true, text: unit, color: tickColor, font: CHART_FONT }
+        title: { display: true, text: isLevel ? 'Water Level (m) — depth below surface' : unit, color: isLevel ? themeColor('--purple', '#6d5ae0') : tickColor, font: CHART_FONT }
       }
     };
   }
@@ -1142,12 +1187,59 @@ function buildOrUpdateChart() {
       plugins: {
         legend: {
           position: 'top', align: 'start',
-          labels: { color: themeColor('--text-muted', '#57777d'), font: { family: CHART_FONT.family, size: 12, weight: '600' }, boxWidth: 10, boxHeight: 10, padding: 14, usePointStyle: true, filter: (item) => !item.text.includes('Pump Setting') }
+          onClick: (e, legendItem, legend) => {
+            if (legendItem.datasetIndex < 0) return;
+            const ci = legend.chart;
+            ci.getDatasetMeta(legendItem.datasetIndex).hidden = legendItem.hidden ? false : true;
+            ci.update();
+          },
+          labels: {
+            color: themeColor('--text-muted', '#57777d'),
+            font: { family: CHART_FONT.family, size: 12, weight: '600' },
+            boxWidth: 28, boxHeight: 10, padding: 14, usePointStyle: true,
+            generateLabels: (chart) => {
+              const labelCol = themeColor('--text-muted', '#57777d');
+              const items = [];
+              chart.data.datasets.forEach((ds, i) => {
+                if (!ds || !ds.label || ds.label === '' || ds.label.indexOf('Pump Setting') !== -1) return;
+                items.push({
+                  text: ds.label,
+                  fontColor: labelCol,
+                  fillStyle: ds.borderColor,
+                  strokeStyle: ds.borderColor,
+                  lineWidth: Math.max(2, Math.round(ds.borderWidth || 2)),
+                  pointStyle: 'circle',
+                  lineDash: [],
+                  hidden: !chart.isDatasetVisible(i),
+                  index: i,
+                  datasetIndex: i,
+                  pointRadius: 8
+                });
+              });
+              if (keys.some(levelKey)) {
+                items.push({
+                  text: 'Pump Setting',
+                  fontColor: labelCol,
+                  fillStyle: 'transparent',
+                  strokeStyle: themeColor('--purple', '#9a6bff'),
+                  lineWidth: 3,
+                  lineDash: [8, 4],
+                  pointStyle: 'line',
+                  hidden: false,
+                  index: -1,
+                  datasetIndex: -1,
+                  pointRadius: 8
+                });
+              }
+              return items;
+            }
+          }
         },
         tooltip: {
           titleFont: { family: CHART_FONT.family, size: 12, weight: '600' },
           bodyFont: { family: CHART_FONT.family, size: 12 },
           padding: 10, boxPadding: 5,
+          filter: (item) => item.dataset.label !== '',
           callbacks: { label: (ctx) => {
             if (multi) return `${ctx.dataset.label}: ${ctx.parsed.y.toFixed(2)}`;
             const unit = METRICS.find(m => m.key === keys[0]).unit;
