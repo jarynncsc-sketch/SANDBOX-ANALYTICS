@@ -974,6 +974,20 @@ let mainChartInstance = null;
   }
 })();
 
+// When embedded inside AGUS main's "AGUS Analytics" module overlay, the
+// parent page is the source of truth for zoom size — it pushes its
+// browser-zoom factor here so this app visually matches it instead of
+// scaling itself independently. No-op when opened standalone (no message
+// ever arrives, so nothing changes from default behavior).
+window.addEventListener('message', (e) => {
+  if (!e.data || e.data.type !== 'agus-zoom-sync') return;
+  const factor = e.data.factor;
+  if (typeof factor !== 'number' || !isFinite(factor) || factor <= 0) return;
+  // 'zoom' rescales layout the same way native browser zoom does (Chrome/
+  // Edge/Safari); unsupported in Firefox, where this simply has no effect.
+  document.documentElement.style.zoom = factor;
+});
+
 function selectedMetricKeys() {
   return METRICS.map(m => m.key).filter(k => state.metrics.has(k));
 }
