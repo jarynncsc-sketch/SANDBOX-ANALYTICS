@@ -319,6 +319,30 @@
   .metric-card{padding:clamp(0.75rem, 1.2vh, 1rem);margin-bottom:0;}
   .metric-card .meta{font-size:clamp(10px, 0.9vw, 11.5px);color:var(--text-faint);font-family:var(--mono);margin:2px 0 clamp(0.75rem, 1.2vh, 1rem);}
   .chart-wrap{position:relative;height:clamp(300px, 50vh, 470px);}
+  .chart-scroll{display:none;align-items:center;gap:10px;padding:10px 4px 2px;}
+  .chart-scroll.active{display:flex;}
+  .chart-scroll input[type="range"]{
+    flex:1;-webkit-appearance:none;appearance:none;height:4px;border-radius:2px;
+    background:var(--border);outline:none;cursor:pointer;
+  }
+  .chart-scroll input[type="range"]::-webkit-slider-thumb{
+    -webkit-appearance:none;appearance:none;width:14px;height:14px;border-radius:50%;
+    background:var(--teal);border:2px solid var(--bg-panel);box-shadow:var(--shadow);cursor:pointer;
+  }
+  .chart-scroll input[type="range"]::-moz-range-thumb{
+    width:14px;height:14px;border-radius:50%;background:var(--teal);border:2px solid var(--bg-panel);cursor:pointer;
+  }
+  .chart-scroll .scroll-label{
+    font-family:var(--mono);font-size:10px;color:var(--text-faint);white-space:nowrap;min-width:64px;
+  }
+  .chart-scroll .scroll-label.range{flex:0 0 auto;min-width:0;color:var(--text-muted);}
+  .chart-scroll .scroll-jump{
+    background:none;border:1px solid var(--border);border-radius:6px;color:var(--text-muted);
+    font-family:var(--mono);font-size:10px;padding:3px 7px;cursor:pointer;
+  }
+  .chart-scroll .scroll-jump:hover{background:var(--bg-card-hover);color:var(--text);}
+  .chart-scroll .scroll-jump:disabled{opacity:.4;cursor:default;}
+  .chart-scroll .scroll-jump:disabled:hover{background:none;color:var(--text-muted);}
   .chart-with-well{display:flex;gap:0;align-items:stretch;}
   .chart-with-well .chart-wrap{flex:1 1 auto;min-width:0;}
   .well-fig{flex:0 1 5%;min-width:96px;max-width:150px;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;background:var(--bg-panel);position:relative;}
@@ -548,7 +572,7 @@
               </button>
             </div>
             <div class="toolbar-actions">
-              <button class="btn-icon" id="exportCsvBtn" title="Export current view as CSV">
+              <button class="btn-icon" id="exportCsvBtn" title="Export full history as CSV">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
                 CSV
               </button>
@@ -562,6 +586,12 @@
           <div class="chart-with-well" id="chartWithWell">
             <div class="chart-wrap" id="trendChartWrap"><canvas id="mainChart"></canvas></div>
             <div class="well-fig" id="wellFig" style="display:none;"></div>
+          </div>
+          <div class="chart-scroll" id="chartScroll">
+            <span class="scroll-label" id="scrollLabelStart">—</span>
+            <input type="range" id="chartScrollSlider" min="0" max="0" step="1" value="0" aria-label="Scroll chart through history">
+            <span class="scroll-label" id="scrollLabelEnd">—</span>
+            <button type="button" class="scroll-jump" id="scrollJumpLatest" title="Jump to most recent readings">Latest »</button>
           </div>
           <div class="rank-list" id="compareView" style="display:none;"></div>
           <div id="heatmapView" style="display:none;"></div>
@@ -691,7 +721,10 @@ const state = {
   view: 'trend',
   selected: new Set(STATIONS),
   sortBy: 'name',
-  searchQuery: ''
+  searchQuery: '',
+  // How many buckets back from the most-recent one the trend chart is
+  // scrolled, per period. 0 = showing the latest window.
+  scroll: { weekly: 0, monthly: 0, yearly: 0 }
 };
 
 function themeColor(varName, fallback) {
@@ -725,11 +758,16 @@ function mulberry32(seed) {
   };
 }
 
+// BUCKET_COUNT is the number of points visible in the chart at once (the
+// slider "window"). HISTORY_COUNT is the full amount of history kept
+// underneath it, which the slider scrolls across — e.g. monthly keeps 3
+// years of months in memory but only shows 12 at a time.
 const BUCKET_COUNT = { weekly: 12, monthly: 12, yearly: 6 };
+const HISTORY_COUNT = { weekly: 52, monthly: 36, yearly: 8 };
 
 function buildLabels(period) {
   const now = new Date();
-  const n = BUCKET_COUNT[period];
+  const n = HISTORY_COUNT[period];
   const labels = [];
   for (let i = n - 1; i >= 0; i--) {
     if (period === 'weekly') {
@@ -748,7 +786,7 @@ function buildLabels(period) {
 
 function genSeries(station, metricKey, period) {
   const rand = mulberry32(hashString(station + '::' + metricKey));
-  const n = BUCKET_COUNT[period];
+  const n = HISTORY_COUNT[period];
   const now = new Date();
   const base = BASELINES[station][metricKey];
 
@@ -785,6 +823,56 @@ const dataCache = {};
     STATIONS.forEach(s => { dataCache[period][m.key][s] = genSeries(s, m.key, period); });
   });
 });
+
+// ===========================================================================
+// CHART SCROLL WINDOW — dataCache/buildLabels hold the FULL history
+// (HISTORY_COUNT buckets); the chart only ever shows a BUCKET_COUNT-wide
+// slice of it. These helpers resolve that slice from state.scroll[period].
+// ===========================================================================
+function windowBounds(period) {
+  const total = HISTORY_COUNT[period];
+  const win = Math.min(BUCKET_COUNT[period], total);
+  const maxOffset = Math.max(0, total - win);
+  const offset = Math.min(Math.max(0, state.scroll[period] || 0), maxOffset);
+  state.scroll[period] = offset; // store back the clamped value
+  return { total, win, maxOffset, offset, start: total - win - offset, end: total - offset };
+}
+
+function visibleLabels(period) {
+  const { start, end } = windowBounds(period);
+  return buildLabels(period).slice(start, end);
+}
+
+function visSeries(metricKey, station, period) {
+  period = period || state.period;
+  const { start, end } = windowBounds(period);
+  const arr = dataCache[period][metricKey][station] || [];
+  return arr.slice(start, end);
+}
+
+function updateScrollSlider() {
+  const wrap = document.getElementById('chartScroll');
+  const slider = document.getElementById('chartScrollSlider');
+  if (!wrap || !slider) return;
+  const { win, maxOffset, offset } = windowBounds(state.period);
+  const canScroll = maxOffset > 0 && state.view === 'trend';
+  wrap.classList.toggle('active', canScroll);
+  if (!canScroll) return;
+
+  // Slider value increases left-to-right with time, so it moves the
+  // opposite direction of "offset back from latest".
+  slider.min = 0;
+  slider.max = maxOffset;
+  slider.value = maxOffset - offset;
+
+  const labels = buildLabels(state.period);
+  const { start, end } = windowBounds(state.period);
+  document.getElementById('scrollLabelStart').textContent = labels[start] || '';
+  document.getElementById('scrollLabelEnd').textContent = labels[end - 1] || '';
+  const jumpBtn = document.getElementById('scrollJumpLatest');
+  if (jumpBtn) jumpBtn.disabled = offset === 0;
+  void win;
+}
 
 // ===========================================================================
 // STATION CHIPS — with search, sort, and status badges
@@ -1104,8 +1192,9 @@ function buildOrUpdateChart() {
   const canvas = document.getElementById('mainChart');
   if (!canvas) return;
 
-  const labels = buildLabels(state.period);
+  const labels = visibleLabels(state.period);
   const selected = STATIONS.filter(s => state.selected.has(s));
+  updateScrollSlider();
 
   const wrap = canvas.parentElement;
   let note = wrap.querySelector('.empty-note');
@@ -1144,7 +1233,7 @@ function buildOrUpdateChart() {
       const m = METRICS.find(x => x.key === key);
       const color = themeColor(m.color, '#6d5ae0');
       const avg = labels.map((_, t) => {
-        const vals = selected.map(s => dataCache[state.period][key][s][t]);
+        const vals = selected.map(s => visSeries(key, s)[t]);
         return vals.reduce((a, b) => a + b, 0) / vals.length;
       });
       const isLevel = levelKey(key);
@@ -1235,7 +1324,7 @@ function buildOrUpdateChart() {
       const color = stationColor(s);
       return {
         label: s,
-        data: dataCache[state.period][metricKey][s],
+        data: visSeries(metricKey, s),
         borderColor: color,
         backgroundColor: few ? fillColor : color,
         borderWidth: lineWidth,
@@ -1272,7 +1361,7 @@ function buildOrUpdateChart() {
         datasets.push({
           id: 'dd-single-' + s,
           label: '',
-          data: dataCache[state.period][metricKey][s],
+          data: visSeries(metricKey, s),
           borderColor: 'transparent',
           backgroundColor: 'rgba(34,200,232,0.28)',
           borderWidth: 0,
@@ -1488,6 +1577,7 @@ function setView(view) {
   document.getElementById('trendChartWrap').style.display = view === 'trend' ? '' : 'none';
   document.getElementById('compareView').style.display = view === 'compare' ? '' : 'none';
   document.getElementById('heatmapView').style.display = view === 'heatmap' ? '' : 'none';
+  if (view !== 'trend') document.getElementById('chartScroll').classList.remove('active');
   
   if (view === 'trend') { buildOrUpdateChart(); renderWellFigure(); }
   else if (view === 'compare') { renderCompareView(); renderWellFigure(); }
@@ -1644,7 +1734,19 @@ document.getElementById('periodTabs').addEventListener('click', (e) => {
   document.querySelectorAll('#periodTabs button').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
   state.period = btn.dataset.period;
+  state.scroll[state.period] = 0; // switching period resets the chart to the latest window
   renderAll();
+});
+
+document.getElementById('chartScrollSlider').addEventListener('input', (e) => {
+  const { maxOffset } = windowBounds(state.period);
+  state.scroll[state.period] = maxOffset - Number(e.target.value);
+  buildOrUpdateChart();
+});
+
+document.getElementById('scrollJumpLatest').addEventListener('click', () => {
+  state.scroll[state.period] = 0;
+  buildOrUpdateChart();
 });
 
 // ===========================================================================
@@ -1744,7 +1846,7 @@ function gasReading(entry, metricKey) {
 
 function gasBucketEnds(period) {
   const now = new Date();
-  const n = BUCKET_COUNT[period];
+  const n = HISTORY_COUNT[period]; // full history range; the chart windows into this via the scroll slider
   const ends = [];
   for (let i = n - 1; i >= 0; i--) {
     const d = new Date(now);
