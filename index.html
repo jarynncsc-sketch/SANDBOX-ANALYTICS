@@ -1,1854 +1,654 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>AGUS · Enhanced Sandbox Analytics</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
-<script>
-  (function(){
-    try {
-      const saved = localStorage.getItem('agus-theme');
-      const theme = saved || (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
-      if (theme === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
-    } catch (e) {}
-  })();
-</script>
-<style>
-  :root{
-    --bg:#f7f9fc;
-    --bg-panel:#ffffff;
-    --bg-card:#ffffff;
-    --bg-card-hover:#eef2fb;
-    --border:#e2e5f0;
-    --border-soft:#ecf0f7;
-    --text:#1b1f3b;
-    --text-muted:#5a6180;
-    --text-faint:#9aa0bd;
-    --teal:#6d5ae0;
-    --teal-dim:#ece9fb;
-    --amber:#f0a63c;
-    --amber-dim:#fdf3e1;
-    --red:#ef4d6a;
-    --red-dim:#fde7ec;
-    --blue:#3aa1e0;
-    --blue-dim:#e5f2fc;
-    --green:#23c08b;
-    --purple:#9a6bff;
-    --orange:#ff8c42;
-    --pink:#f45bb5;
-    --radius:12px;
-    --mono:'IBM Plex Mono', ui-monospace, monospace;
-    --sans:'IBM Plex Sans', system-ui, sans-serif;
-    --display:'Space Grotesk', 'IBM Plex Sans', sans-serif;
-    --topbar-bg:rgba(255,255,255,0.8);
-    --shadow:0 1px 3px rgba(59,51,150,0.06);
-    --shadow-lg:0 8px 24px rgba(59,51,150,0.12);
-    color-scheme: light;
-  }
-  html[data-theme="dark"]{
-    --bg:#0a0a12;
-    --bg-panel:#101019;
-    --bg-card:#13131f;
-    --bg-card-hover:#1a1a2c;
-    --border:#2a2a45;
-    --border-soft:#1d1d31;
-    --text:#eeedfb;
-    --text-muted:#9b99c0;
-    --text-faint:#62608a;
-    --teal:#8b7cf8;
-    --teal-dim:#201c3a;
-    --amber:#f5b85c;
-    --amber-dim:#3a2b12;
-    --red:#ff5d7a;
-    --red-dim:#3a1822;
-    --blue:#55b7f0;
-    --blue-dim:#12293c;
-    --green:#34d9a1;
-    --purple:#b58dff;
-    --orange:#ffa364;
-    --pink:#ff7ac6;
-    --topbar-bg:rgba(10,10,18,0.8);
-    --shadow:0 1px 3px rgba(0,0,0,0.3);
-    --shadow-lg:0 8px 24px rgba(0,0,0,0.5);
-    color-scheme: dark;
-  }
-  *{box-sizing:border-box;}
-  html,body{margin:0;padding:0;height:100%;overflow:hidden;}
-  body{
-    background:
-      radial-gradient(circle at 8% -5%, rgba(154,107,255,0.10), transparent 45%),
-      radial-gradient(circle at 92% 10%, rgba(47,159,240,0.08), transparent 50%),
-      var(--bg);
-    color:var(--text);
-    font-family:var(--sans);
-    min-height:100vh;
-    -webkit-font-smoothing:antialiased;
-    transition:background-color .25s,color .25s;
-  }
-  html[data-theme="dark"] body{
-    background:
-      radial-gradient(circle at 8% -5%, rgba(181,141,255,0.12), transparent 45%),
-      radial-gradient(circle at 92% 10%, rgba(92,195,248,0.09), transparent 50%),
-      var(--bg);
-  }
-  *{scrollbar-color: var(--border) transparent;}
-  ::selection{background:var(--teal-dim);color:var(--text);}
-  button{font-family:var(--sans);cursor:pointer;}
-
-  .hidden{display:none !important;}
-  .mono{font-family:var(--mono);}
-
-  #app{display:flex;height:100vh;flex-direction:column;overflow:hidden;}
-  
-  header.topbar{
-    display:flex;align-items:center;gap:20px;
-    padding:14px 24px;
-    border-bottom:1px solid var(--border);
-    background:var(--bg-panel);
-    box-shadow:var(--shadow);
-    position:sticky;top:0;z-index:20;flex-wrap:wrap;row-gap:10px;
-  }
-  .brand{display:flex;align-items:center;gap:10px;flex-shrink:0;}
-  .brand-mark{
-    width:32px;height:32px;border-radius:10px;
-    background:linear-gradient(135deg,#9a6bff 0%,#6d5ae0 40%,#2f9ff0 75%,#22c8e8 100%);
-    display:flex;align-items:center;justify-content:center;
-    font-family:var(--display);font-weight:700;font-size:13px;color:#ffffff;flex-shrink:0;
-  }
-  .brand-text{display:flex;flex-direction:column;line-height:1.1;}
-  .brand-text b{
-    font-family:var(--display);font-size:15px;font-weight:600;
-    color:var(--text);
-  }
-  .brand-text span{font-size:10.5px;color:var(--text-faint);letter-spacing:.08em;font-family:var(--mono);}
-
-  .topbar-controls{display:flex;align-items:center;gap:12px;margin-left:auto;flex-wrap:wrap;}
-
-  .period-tabs{display:flex;gap:4px;background:var(--bg-panel);border:1px solid var(--border);border-radius:11px;padding:3px;}
-  .period-tabs button{
-    padding:7px 14px;border-radius:8px;border:none;background:transparent;
-    color:var(--text-muted);font-size:12.5px;font-weight:600;white-space:nowrap;transition:all .15s;
-  }
-  .period-tabs button:hover{color:var(--text);}
-  .period-tabs button.active{
-    color:#fff;background:var(--teal);
-    box-shadow:none;
-  }
-
-  .search-box{
-    display:flex;align-items:center;gap:6px;
-    padding:7px 12px;border-radius:9px;border:1px solid var(--border);
-    background:var(--bg-panel);min-width:200px;
-  }
-  .search-box:focus-within{border-color:var(--purple);}
-  .search-box svg{flex-shrink:0;color:var(--text-faint);}
-  .search-box input{
-    border:none;background:transparent;color:var(--text);font-family:var(--sans);
-    font-size:12.5px;outline:none;width:100%;min-width:0;
-  }
-  .search-box input::placeholder{color:var(--text-faint);}
-
-  .theme-toggle{
-    display:inline-flex;align-items:center;justify-content:center;
-    width:32px;height:32px;border-radius:8px;border:1px solid var(--border);
-    background:var(--bg-panel);color:var(--text-muted);flex-shrink:0;
-    font-size:16px;line-height:1;transition:all .15s;
-  }
-  .theme-toggle:hover{color:var(--purple);border-color:var(--purple);}
-  .theme-toggle .icon-sun{display:none;}
-  .theme-toggle .icon-moon{display:inline;}
-  html[data-theme="dark"] .theme-toggle .icon-moon{display:none;}
-  html[data-theme="dark"] .theme-toggle .icon-sun{display:inline;}
-
-  .kbd-hint{
-    font-family:var(--mono);font-size:10px;color:var(--text-faint);
-    padding:3px 6px;border-radius:5px;border:1px solid var(--border);
-    background:var(--bg-panel);white-space:nowrap;
-  }
-
-  main{flex:1;padding:12px 16px;width:100%;min-height:0;display:flex;overflow:hidden;}
-
-  .layout-grid{display:flex;gap:12px;align-items:stretch;flex:1;min-width:0;min-height:0;width:100%;max-width:2200px;margin:0 auto;}
-  .sidebar{width:25%;min-width:230px;max-width:340px;flex-shrink:0;display:flex;flex-direction:column;overflow:hidden;min-height:0;padding:10px 12px;margin-bottom:0;}
-  .sidebar-btns{display:flex;gap:5px;margin:6px 0 8px;flex-shrink:0;}
-  .sidebar-btns .btn-ghost{flex:1;}
-  .content-col{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;overflow-y:auto;padding-right:2px;}
-
-  .station-list{
-    display:flex;flex-direction:column;gap:4px;overflow-y:auto;padding-right:4px;flex:1;min-height:0;
-  }
-  .station-row{
-    display:flex;align-items:center;gap:8px;padding:6px 9px;border-radius:8px;
-    border:1px solid var(--border);background:var(--bg-panel);cursor:pointer;
-    transition:all .18s;opacity:.6;flex-shrink:0;position:relative;overflow:hidden;
-  }
-  .station-row i{width:8px;height:8px;border-radius:50%;background:var(--dot);flex-shrink:0;}
-  .station-row .sname{font-size:11px;color:var(--text-muted);font-weight:600;flex:1;
-    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .station-row .status-badge{
-    font-size:9px;padding:1px 5px;border-radius:4px;font-weight:600;
-    font-family:var(--mono);flex-shrink:0;text-transform:uppercase;letter-spacing:.02em;
-  }
-  .station-row .status-badge.online{background:var(--green-dim);color:var(--green);}
-  .station-row .status-badge.warning{background:var(--amber-dim);color:var(--amber);}
-  .station-row .status-badge.critical{background:var(--red-dim);color:var(--red);}
-  .station-row:hover{border-color:var(--purple);opacity:.9;}
-  .station-row.active{
-    opacity:1;border-color:var(--dot);background:var(--bg-card-hover);
-  }
-  .station-row.active .sname{color:var(--text);}
-
-  .content-col > .panel{flex-shrink:0;}
-  .content-col > .metric-card{flex:1;min-height:0;display:flex;flex-direction:column;}
-  .content-col > .metric-card .chart-wrap{flex:1;min-height:260px;height:auto;}
-  .content-col > .metric-card .rank-list{flex:1;min-height:0;overflow-y:auto;}
-  .content-col > .sandbox-note{flex-shrink:0;}
-
-  @media(max-width:980px){
-    html,body{height:auto;overflow:auto;}
-    #app{height:auto;overflow:visible;}
-    main{overflow:visible;display:block;padding:16px;}
-    .layout-grid{flex-direction:column;}
-    .sidebar{width:100%;max-width:none;min-width:0;position:static;max-height:none;}
-    .station-list{max-height:280px;flex:none;}
-    .content-col{overflow:visible;}
-    .content-col > .metric-card{flex:none;}
-    .content-col > .metric-card .chart-wrap{
-      flex:none;height:clamp(260px, 55vh, 480px);min-height:260px;
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes">
+  <title>AGUS · Sandbox Analytics</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+  <style>
+    /* ----- reset & base ----- */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100%;
+      min-width: 0;
+      max-width: 100%;
+      overflow-x: hidden;
+      margin: 0;
+      padding: 0;
     }
-    .topbar-controls{width:100%;justify-content:flex-start;}
-    .search-box{min-width:0;flex:1;}
-  }
-
-  .panel{
-    position:relative;
-    background:var(--bg-card);
-    border:1px solid var(--border);border-radius:var(--radius);
-    padding:12px 14px;box-shadow:var(--shadow);margin-bottom:12px;
-    transition:box-shadow .2s, border-color .2s, transform .2s;
-  }
-  .panel:hover{
-    box-shadow:var(--shadow-lg);
-    transform:translateY(-1px);
-  }
-  .panel h3{
-    font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;
-    color:var(--teal);margin:0 0 10px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;
-  }
-  .panel h3 .hint{margin-left:auto;font-weight:400;letter-spacing:0;color:var(--text-faint);}
-
-  .station-toolbar{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:2px;}
-  .station-toolbar .btns{display:flex;gap:8px;}
-  .btn-ghost{
-    padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:var(--bg-panel);
-    color:var(--text-muted);font-size:10.5px;font-weight:600;transition:all .15s;white-space:nowrap;
-  }
-  .btn-ghost:hover{color:var(--text);border-color:var(--purple);}
-  .btn-ghost:active{transform:scale(0.97);}
-
-  .chiprow{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;}
-  .chip{
-    padding:6px 13px 6px 10px;border-radius:99px;border:1px solid var(--border);background:var(--bg-panel);
-    font-size:12.5px;color:var(--text-muted);font-weight:600;display:flex;align-items:center;gap:7px;
-    transition:all .15s;opacity:.55;
-  }
-  .chip:hover{border-color:var(--text-faint);opacity:.85;}
-  .chip.active{opacity:1;border-color:var(--dot);color:var(--text);background:var(--bg-card-hover);}
-  .chip i{display:inline-block;width:9px;height:9px;border-radius:50%;background:var(--dot);flex-shrink:0;}
-
-  .stats-row{display:flex;gap:6px;flex-wrap:nowrap;overflow-x:auto;padding-bottom:2px;}
-  .stat{
-    background:var(--bg-panel);border:1px solid var(--border);border-radius:10px;padding:5px 9px;
-    transition:all .2s;cursor:default;position:relative;overflow:hidden;min-width:86px;flex-shrink:0;
-  }
-  .stat:hover{transform:translateY(-1px);box-shadow:var(--shadow-lg);}
-  .stat .label{font-family:var(--mono);font-size:7.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--text-faint);margin-bottom:1px;white-space:nowrap;}
-  .stat .value{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--teal);line-height:1.2;}
-  .stat .value span{font-size:8.5px;font-weight:600;color:var(--text-faint);margin-left:1px;}
-  .stat .sub{font-size:8px;color:var(--text-faint);margin-top:0;line-height:1.2;}
-  .stat .trend{
-    position:absolute;top:4px;right:5px;font-size:9px;font-weight:600;
-    display:flex;align-items:center;gap:2px;
-  }
-  .stat .trend.up{color:var(--green);}
-  .stat .trend.down{color:var(--red);}
-  .stat .trend.flat{color:var(--text-faint);}
-
-  .metric-tabs{display:flex;gap:6px;flex-wrap:nowrap;overflow-x:auto;}
-  .metric-tab{
-    padding:6px 10px;border-radius:6px;border:1px solid var(--border);background:var(--bg-panel);
-    color:var(--text-muted);font-size:11px;font-weight:600;transition:all .15s;white-space:nowrap;flex-shrink:0;
-  }
-  .metric-tab:hover{border-color:var(--text-faint);color:var(--text);}
-  .metric-tab.active{border-color:var(--teal);color:#fff;background:var(--teal);}
-  .metric-tab .unit{font-weight:400;opacity:.8;margin-left:3px;}
-
-  .metric-card{padding:10px 12px;margin-bottom:0;}
-  .metric-card .meta{font-size:10.5px;color:var(--text-faint);font-family:var(--mono);margin:2px 0 10px;}
-  .chart-wrap{position:relative;height:470px;}
-  .chart-with-well{display:flex;gap:0;align-items:stretch;}
-  .chart-with-well .chart-wrap{flex:1 1 auto;min-width:0;}
-  .well-fig{flex:0 1 5%;min-width:96px;max-width:150px;border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;background:var(--bg-panel);position:relative;}
-  .well-fig svg{display:block;width:100%;height:100%;}
-  .empty-note{
-    position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-    color:var(--text-faint);font-size:12.5px;text-align:center;padding:0 20px;
-  }
-
-  .sandbox-note{
-    font-size:10px;color:var(--text-faint);font-family:var(--mono);
-    text-align:center;padding:12px 0 4px;line-height:1.5;
-  }
-
-  .metric-card-toolbar{display:flex;align-items:center;gap:6px;flex-wrap:nowrap;margin-bottom:6px;}
-  .view-toggle{display:flex;gap:2px;background:var(--bg-panel);border:1px solid var(--border);border-radius:8px;padding:2px;flex-shrink:0;}
-  .view-toggle button{
-    padding:4px 8px;border-radius:5px;border:none;background:transparent;
-    color:var(--text-muted);font-size:11px;font-weight:600;white-space:nowrap;transition:all .15s;
-    display:inline-flex;align-items:center;gap:4px;
-  }
-  .view-toggle button:hover{color:var(--text);}
-  .view-toggle button.active{color:#fff;background:var(--teal);}
-  .toolbar-actions{display:flex;gap:5px;margin-left:auto;flex-shrink:0;}
-  .btn-icon{
-    display:inline-flex;align-items:center;gap:4px;
-    padding:4px 8px;border-radius:6px;border:1px solid var(--border);background:transparent;
-    color:var(--text-muted);font-size:11px;font-weight:600;transition:all .15s;white-space:nowrap;
-  }
-  .btn-icon:hover{color:var(--teal);border-color:var(--teal);}
-  .btn-icon:active{transform:scale(0.97);}
-  .btn-icon svg{flex-shrink:0;}
-
-  .rank-list{display:flex;flex-direction:column;gap:8px;}
-  .rank-row{display:grid;grid-template-columns:150px 1fr 78px;align-items:center;gap:12px;}
-  .rank-row .rname{font-size:12.5px;color:var(--text);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  .rank-row .rbar-wrap{background:var(--bg-panel);border-radius:6px;height:20px;position:relative;overflow:hidden;}
-  .rank-row .rbar{height:100%;border-radius:6px;transition:width .3s ease;}
-  .rank-row .rbar-setting{position:absolute;top:0;bottom:0;width:2px;background:var(--text-faint);opacity:.7;}
-  .rank-row .rval{font-family:var(--mono);font-size:12.5px;color:var(--text-muted);text-align:right;}
-
-  .station-detail-modal{
-    position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:100;
-    display:flex;align-items:center;justify-content:center;
-    opacity:0;pointer-events:none;transition:opacity .2s;
-  }
-  .station-detail-modal.active{opacity:1;pointer-events:all;}
-  .station-detail-panel{
-    background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);
-    padding:24px;max-width:500px;width:90%;max-height:80vh;overflow-y:auto;
-    box-shadow:var(--shadow-lg);transform:translateY(10px);transition:transform .2s;
-  }
-  .station-detail-modal.active .station-detail-panel{transform:translateY(0);}
-  .station-detail-panel h2{
-    font-family:var(--display);font-size:18px;font-weight:600;margin:0 0 4px;
-    display:flex;align-items:center;gap:10px;
-  }
-  .station-detail-panel .detail-grid{
-    display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:12px;margin-top:16px;
-  }
-  .station-detail-panel .detail-item{
-    background:var(--bg-panel);border:1px solid var(--border);border-radius:8px;padding:12px;
-  }
-  .station-detail-panel .detail-item .label{font-size:10px;color:var(--text-faint);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px;}
-  .station-detail-panel .detail-item .value{font-family:var(--mono);font-size:16px;font-weight:700;color:var(--teal);}
-  .station-detail-panel .close-btn{
-    position:absolute;top:16px;right:16px;background:transparent;border:none;
-    color:var(--text-muted);font-size:20px;cursor:pointer;padding:4px 8px;border-radius:4px;
-  }
-  .station-detail-panel .close-btn:hover{color:var(--text);background:var(--bg-card-hover);}
-
-  .tooltip-custom{
-    position:absolute;background:var(--bg-card);border:1px solid var(--border);
-    border-radius:8px;padding:8px 12px;font-size:12px;pointer-events:none;
-    box-shadow:var(--shadow-lg);z-index:50;opacity:0;transition:opacity .15s;
-    max-width:200px;
-  }
-  .tooltip-custom.visible{opacity:1;}
-
-  @media print{
-    header.topbar .period-tabs, header.topbar .theme-toggle, header.topbar .search-box,
-    .sidebar-btns, .metric-tabs, .view-toggle, .toolbar-actions,
-    .station-row:not(.active){ display:none !important; }
-    header.topbar{position:static;box-shadow:none;}
-    body{background:#fff !important;}
-    .panel{box-shadow:none;border:1px solid #ccc;break-inside:avoid;}
-    .chart-wrap{height:320px !important;}
-    main{max-width:100%;}
-    .layout-grid{flex-direction:column;}
-    .sidebar{width:100%;max-width:none;position:static;max-height:none;}
-  }
-
-  @media(max-width:700px){
-    header.topbar{padding:12px 16px;}
-    main{padding:16px;}
-    .content-col > .metric-card .chart-wrap{
-      height:clamp(220px, 48vh, 380px);min-height:220px;
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      -webkit-font-smoothing: antialiased;
+      transition: background 0.2s, color 0.2s;
     }
-    .rank-row{grid-template-columns:100px 1fr 60px;}
-    .station-detail-panel{max-width:95%;}
-  }
-
-  @media(max-width:640px){
-    .chart-with-well{flex-direction:column;}
-    .chart-with-well .well-fig{
-      max-width:none;width:100%;min-width:0;height:70px;margin-top:8px;flex:none;
+    :root {
+      --bg: #f7f9fc;
+      --bg-panel: #ffffff;
+      --bg-card: #ffffff;
+      --bg-card-hover: #eef2fb;
+      --border: #e2e5f0;
+      --border-soft: #ecf0f7;
+      --text: #1b1f3b;
+      --text-muted: #5a6180;
+      --text-faint: #9aa0bd;
+      --teal: #6d5ae0;
+      --teal-dim: #ece9fb;
+      --amber: #f0a63c;
+      --red: #ef4d6a;
+      --blue: #3aa1e0;
+      --green: #23c08b;
+      --purple: #9a6bff;
+      --orange: #ff8c42;
+      --radius: 12px;
+      --mono: 'IBM Plex Mono', monospace;
+      --sans: 'IBM Plex Sans', system-ui, sans-serif;
+      --display: 'Space Grotesk', sans-serif;
+      --shadow: 0 1px 3px rgba(59,51,150,0.06);
+      --shadow-lg: 0 8px 24px rgba(59,51,150,0.12);
+      color-scheme: light;
     }
-  }
-
-  @media(max-width:480px){
-    header.topbar{padding:10px 12px;gap:10px;}
-    .brand-text b{font-size:13px;}
-    .brand-text span{font-size:9px;}
-    .kbd-shortcut-hint{display:none;}
-    main{padding:10px;}
-    .sidebar{padding:8px 10px;}
-    .station-list{max-height:220px;}
-    .content-col > .metric-card .chart-wrap{
-      height:clamp(200px, 45vh, 340px);min-height:200px;
+    html[data-theme="dark"] {
+      --bg: #0a0a12;
+      --bg-panel: #101019;
+      --bg-card: #13131f;
+      --bg-card-hover: #1a1a2c;
+      --border: #2a2a45;
+      --border-soft: #1d1d31;
+      --text: #eeedfb;
+      --text-muted: #9b99c0;
+      --text-faint: #62608a;
+      --teal: #8b7cf8;
+      --amber: #f5b85c;
+      --red: #ff5d7a;
+      --blue: #55b7f0;
+      --green: #34d9a1;
+      --purple: #b58dff;
+      --orange: #ffa364;
+      --shadow: 0 1px 3px rgba(0,0,0,0.3);
+      --shadow-lg: 0 8px 24px rgba(0,0,0,0.5);
+      color-scheme: dark;
     }
-    .metric-card-toolbar{flex-wrap:wrap;}
-    .rank-row{grid-template-columns:88px 1fr 50px;gap:8px;}
-    .station-detail-panel{padding:16px;}
-  }
-.level-sync-fix{display:block}.chart-with-well{display:flex;gap:8px;align-items:stretch;min-width:0;min-height:0;width:100%;overflow:hidden}.chart-with-well .chart-wrap{flex:1 1 auto;min-width:0;min-height:0;position:relative;overflow:hidden}.well-fig{flex:0 0 clamp(150px,20%,220px);width:clamp(150px,20%,220px);min-width:150px;max-width:220px;min-height:0;overflow:hidden;position:relative}.well-fig svg{display:block;width:100%;height:100%;max-width:100%;max-height:100%}
-</style>
+    /* ----- layout: always fill viewport, shrink to fit ----- */
+    #app {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      max-height: 100vh;
+      overflow: hidden;
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+    }
+    main {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow: hidden;
+      padding: 10px 12px;
+      width: 100%;
+      max-width: 100%;
+    }
+    .layout-grid {
+      display: flex;
+      gap: 12px;
+      height: 100%;
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+      align-items: stretch;
+    }
+    .sidebar {
+      flex: 0 1 28%;
+      min-width: 160px;
+      max-width: 340px;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 12px 10px;
+      box-shadow: var(--shadow);
+    }
+    .content-col {
+      flex: 1 1 72%;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      gap: 10px;
+    }
+    .panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 10px 12px;
+      box-shadow: var(--shadow);
+      transition: box-shadow 0.2s;
+      min-width: 0;
+      overflow: hidden;
+    }
+    .metric-card {
+      flex: 1 1 auto;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      overflow: hidden;
+    }
+    .chart-with-well {
+      display: flex;
+      gap: 8px;
+      flex: 1 1 auto;
+      min-height: 0;
+      width: 100%;
+      max-width: 100%;
+      overflow: hidden;
+    }
+    .chart-wrap {
+      flex: 1 1 auto;
+      min-width: 0;
+      min-height: 0;
+      position: relative;
+      overflow: hidden;
+    }
+    .chart-wrap canvas {
+      display: block !important;
+      position: absolute !important;
+      inset: 0 !important;
+      width: 100% !important;
+      height: 100% !important;
+      max-width: 100% !important;
+      max-height: 100% !important;
+    }
+    .well-fig {
+      flex: 0 1 100px;
+      min-width: 60px;
+      max-width: 180px;
+      min-height: 0;
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      background: var(--bg-panel);
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .well-fig svg {
+      width: 100%;
+      height: 100%;
+      max-width: 100%;
+      max-height: 100%;
+      display: block;
+    }
+    .station-list {
+      flex: 1 1 auto;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-height: 0;
+      margin-top: 6px;
+    }
+    .station-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 8px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg-panel);
+      cursor: pointer;
+      transition: all 0.15s;
+      flex-shrink: 0;
+      opacity: 0.6;
+    }
+    .station-row.active { opacity: 1; border-color: var(--teal); background: var(--bg-card-hover); }
+    .station-row i { width: 8px; height: 8px; border-radius: 50%; background: var(--dot); flex-shrink: 0; }
+    .station-row .sname { font-size: 11px; font-weight: 600; color: var(--text-muted); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .station-row.active .sname { color: var(--text); }
+    .status-badge { font-size: 8px; padding: 1px 6px; border-radius: 4px; font-weight: 600; text-transform: uppercase; }
+    .status-badge.online { background: var(--green); color: #fff; }
+    .status-badge.warning { background: var(--amber); color: #fff; }
+    .status-badge.critical { background: var(--red); color: #fff; }
+    .stats-row {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      padding: 4px 0;
+    }
+    .stat {
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 4px 8px;
+      flex: 1 0 auto;
+      min-width: 70px;
+      max-width: 140px;
+    }
+    .stat .label { font-size: 7px; text-transform: uppercase; color: var(--text-faint); }
+    .stat .value { font-size: 12px; font-weight: 700; color: var(--teal); font-family: var(--mono); }
+    .stat .value span { font-size: 8px; color: var(--text-faint); }
+    .trend { font-size: 9px; }
+    .trend.up { color: var(--green); }
+    .trend.down { color: var(--red); }
+    .trend.flat { color: var(--text-faint); }
+    header.topbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px 16px;
+      padding: 8px 16px;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg-panel);
+      box-shadow: var(--shadow);
+      flex-shrink: 0;
+    }
+    .brand { display: flex; align-items: center; gap: 8px; }
+    .brand-mark {
+      width: 28px; height: 28px; border-radius: 8px;
+      background: linear-gradient(135deg, #9a6bff, #6d5ae0, #2f9ff0);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 12px; color: #fff;
+    }
+    .brand-text b { font-size: 14px; font-family: var(--display); }
+    .brand-text span { font-size: 9px; color: var(--text-faint); font-family: var(--mono); }
+    .topbar-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-left: auto;
+    }
+    .period-tabs {
+      display: flex;
+      gap: 3px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 2px;
+    }
+    .period-tabs button {
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 11px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .period-tabs button.active { background: var(--teal); color: #fff; }
+    .search-box {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 4px 10px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg-panel);
+      min-width: 120px;
+    }
+    .search-box input {
+      border: none;
+      background: transparent;
+      color: var(--text);
+      font-size: 11px;
+      outline: none;
+      width: 100%;
+      min-width: 40px;
+    }
+    .theme-toggle {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 30px; height: 30px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg-panel);
+      color: var(--text-muted);
+      font-size: 15px;
+    }
+    .kbd-hint { font-size: 9px; color: var(--text-faint); font-family: var(--mono); padding: 2px 6px; border: 1px solid var(--border); border-radius: 5px; }
+    .metric-tabs {
+      display: flex;
+      gap: 4px;
+      flex-wrap: wrap;
+    }
+    .metric-tab {
+      padding: 4px 8px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: var(--bg-panel);
+      color: var(--text-muted);
+      font-size: 10px;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .metric-tab.active { border-color: var(--teal); background: var(--teal); color: #fff; }
+    .metric-tab .unit { font-weight: 400; opacity: 0.7; margin-left: 2px; }
+    .view-toggle {
+      display: flex;
+      gap: 2px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 2px;
+    }
+    .view-toggle button {
+      padding: 3px 8px;
+      border-radius: 5px;
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 10px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .view-toggle button.active { background: var(--teal); color: #fff; }
+    .btn-icon {
+      padding: 3px 8px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 10px;
+      font-weight: 600;
+    }
+    .rank-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      overflow-y: auto;
+      flex: 1;
+      min-height: 0;
+    }
+    .rank-row {
+      display: grid;
+      grid-template-columns: 100px 1fr 60px;
+      gap: 8px;
+      align-items: center;
+    }
+    .rank-row .rbar-wrap {
+      background: var(--bg-panel);
+      border-radius: 4px;
+      height: 16px;
+      position: relative;
+      overflow: hidden;
+    }
+    .rank-row .rbar { height: 100%; border-radius: 4px; transition: width 0.2s; }
+    .rank-row .rval { font-family: var(--mono); font-size: 11px; text-align: right; }
+    #heatmapView table { width: 100%; border-collapse: collapse; font-size: 10px; }
+    #heatmapView th, #heatmapView td { padding: 4px 6px; border-bottom: 1px solid var(--border-soft); text-align: center; }
+    #heatmapView th { font-family: var(--mono); color: var(--teal); }
+    .station-detail-modal {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 100;
+      display: flex; align-items: center; justify-content: center;
+      opacity: 0; pointer-events: none; transition: opacity 0.2s;
+    }
+    .station-detail-modal.active { opacity: 1; pointer-events: all; }
+    .station-detail-panel {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      max-width: 460px;
+      width: 92%;
+      max-height: 80vh;
+      overflow-y: auto;
+      box-shadow: var(--shadow-lg);
+      transform: translateY(8px);
+      transition: transform 0.2s;
+    }
+    .station-detail-modal.active .station-detail-panel { transform: translateY(0); }
+    .close-btn {
+      position: absolute; top: 12px; right: 16px;
+      background: transparent; border: none;
+      font-size: 22px; color: var(--text-muted);
+    }
+    .detail-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+      gap: 8px;
+      margin-top: 12px;
+    }
+    .detail-item {
+      background: var(--bg-panel);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px;
+    }
+    .detail-item .label { font-size: 8px; text-transform: uppercase; color: var(--text-faint); }
+    .detail-item .value { font-family: var(--mono); font-size: 14px; font-weight: 700; color: var(--teal); }
+    .hidden { display: none !important; }
+    .mono { font-family: var(--mono); }
+    .empty-note { color: var(--text-faint); font-size: 12px; text-align: center; padding: 20px 0; }
+    @media (max-width: 820px) {
+      .layout-grid { flex-direction: column; height: auto; overflow: visible; }
+      .sidebar { max-width: 100%; flex: 0 0 auto; max-height: 240px; }
+      .content-col { flex: 1 1 auto; }
+      .chart-with-well { flex-direction: column; }
+      .well-fig { max-width: 100%; height: 70px; flex: 0 0 70px; }
+      #app { height: auto; max-height: none; overflow: visible; }
+      main { overflow: visible; height: auto; }
+    }
+    @media (max-width: 480px) {
+      header.topbar { padding: 6px 10px; }
+      .brand-text b { font-size: 12px; }
+      .search-box { min-width: 80px; }
+      .stat { min-width: 50px; padding: 3px 6px; }
+      .stat .value { font-size: 10px; }
+    }
+    #trendChartWrap { position: relative; width: 100%; height: auto; flex: 1 1 auto; min-height: 0; }
+    #trendChartWrap canvas { position: absolute !important; inset: 0 !important; width: 100% !important; height: 100% !important; max-width: 100% !important; max-height: 100% !important; }
+  </style>
 </head>
 <body>
-
 <div id="app">
   <header class="topbar">
-    <div class="brand">
-      <div class="brand-mark">SA</div>
-      <div class="brand-text"><b>Sandbox Analytics</b><span>AGUS · CWD Pumping Stations</span></div>
-    </div>
+    <div class="brand"><div class="brand-mark">SA</div><div class="brand-text"><b>Sandbox Analytics</b><span>AGUS · CWD</span></div></div>
     <div class="topbar-controls">
-      <div class="search-box">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
-        </svg>
-        <input type="text" id="stationSearch" placeholder="Search stations..." autocomplete="off">
-      </div>
+      <div class="search-box"><input type="text" id="stationSearch" placeholder="Search..."></div>
       <div class="period-tabs" id="periodTabs">
         <button data-period="weekly">Weekly</button>
         <button data-period="monthly" class="active">Monthly</button>
         <button data-period="yearly">Yearly</button>
       </div>
-      <button class="theme-toggle" onclick="toggleTheme()" title="Toggle dark mode" aria-label="Toggle dark mode">
-        <span class="icon-moon">&#9789;</span>
-        <span class="icon-sun">&#9728;</span>
-      </button>
-      <button class="theme-toggle" onclick="handleSync()" title="Refresh live data" aria-label="Refresh live data" style="padding:0 10px;"><span class="icon-sun">&#8635;</span></button>
-      <span class="kbd-hint" id="gasStatus" style="display:inline-flex;align-items:center;"></span>
-      <div class="kbd-hint kbd-shortcut-hint" title="Keyboard shortcuts available">
-        Press <span class="mono">?</span> for shortcuts
-      </div>
+      <button class="theme-toggle" onclick="toggleTheme()">🌓</button>
+      <button class="theme-toggle" onclick="loadLiveData()">↻</button>
+      <span class="kbd-hint" id="gasStatus">live</span>
     </div>
   </header>
-
   <main>
     <div class="layout-grid">
-      <aside class="sidebar panel">
-        <div class="station-toolbar">
-          <h3 style="margin:0;">Pumping Stations <span class="hint" id="stationCount"></span></h3>
+      <aside class="sidebar">
+        <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap;">
+          <span style="font-family:var(--mono);font-size:9px;color:var(--teal);font-weight:600;">STATIONS</span>
+          <span class="kbd-hint" id="stationCount">0 selected</span>
         </div>
-        <div class="btns sidebar-btns">
-          <button class="btn-ghost" onclick="selectAllStations()">Select all</button>
-          <button class="btn-ghost" onclick="deselectAllStations()">Deselect all</button>
-          <button class="btn-ghost" onclick="sortStations('name')" title="Sort by name">A-Z</button>
-          <button class="btn-ghost" onclick="sortStations('status')" title="Sort by status">Status</button>
+        <div style="display:flex; gap:4px; flex-wrap:wrap; margin:4px 0;">
+          <button class="btn-icon" onclick="selectAllStations()">All</button>
+          <button class="btn-icon" onclick="deselectAllStations()">None</button>
         </div>
         <div class="station-list" id="stationChips"></div>
       </aside>
-
       <div class="content-col">
-        <div class="panel">
-          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px;">
-            <h3 style="margin:0;white-space:nowrap;font-size:9px;">Fleet Summary <span class="hint" id="statsHint"></span></h3>
-            <div style="flex:1;"></div>
-            <div class="metric-tabs" id="metricTabs" style="margin:0;"></div>
-            <span class="hint" id="metricUnitHint" style="font-family:var(--mono);font-size:10px;color:var(--text-faint);"></span>
+        <div class="panel" style="flex-shrink:0;">
+          <div style="display:flex; flex-wrap:wrap; gap:6px; align-items:center;">
+            <span style="font-family:var(--mono);font-size:9px;color:var(--teal);font-weight:600;">FLEET SUMMARY</span>
+            <div class="metric-tabs" id="metricTabs"></div>
           </div>
           <div class="stats-row" id="statsRow"></div>
         </div>
-
         <div class="panel metric-card">
-          <div class="metric-card-toolbar">
-            <h3 style="margin:0 8px 0 0;white-space:nowrap;font-size:9px;">Parameter</h3>
+          <div style="display:flex; flex-wrap:wrap; gap:6px; align-items:center; margin-bottom:4px;">
+            <span style="font-family:var(--mono);font-size:9px;color:var(--teal);font-weight:600;">PARAMETER</span>
             <div class="view-toggle" id="viewToggle">
-              <button data-view="trend" class="active">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/>
-                </svg>
-                Trend
-              </button>
-              <button data-view="compare">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/>
-                </svg>
-                Compare
-              </button>
-              <button data-view="heatmap">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/><path d="M15 3v18"/>
-                </svg>
-                Heatmap
-              </button>
+              <button data-view="trend" class="active">📈 Trend</button>
+              <button data-view="compare">📊 Compare</button>
+              <button data-view="heatmap">🔥 Heatmap</button>
             </div>
-            <div class="toolbar-actions">
-              <button class="btn-icon" id="exportCsvBtn" title="Export current view as CSV">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
-                CSV
-              </button>
-              <button class="btn-icon" id="printBtn" title="Print or save as PDF">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><path d="M6 14h12v8H6z"/></svg>
-                Print
-              </button>
+            <div style="margin-left:auto; display:flex; gap:4px;">
+              <button class="btn-icon" id="exportCsvBtn">CSV</button>
+              <button class="btn-icon" id="printBtn">🖨</button>
             </div>
           </div>
-          <div class="meta" id="metricMeta"></div>
           <div class="chart-with-well" id="chartWithWell">
             <div class="chart-wrap" id="trendChartWrap"><canvas id="mainChart"></canvas></div>
-            <div class="well-fig" id="wellFig" style="display:none;"></div>
+            <div class="well-fig" id="wellFig"></div>
           </div>
           <div class="rank-list" id="compareView" style="display:none;"></div>
           <div id="heatmapView" style="display:none;"></div>
         </div>
-
-        <div class="sandbox-note">
-          Stations, pump settings, and trend series are loaded live from the AGUS Asset Inventory
-          backend (maintenance-readings history cards).<br>
-          The offline fallback still seeds sample data if the backend is unreachable.
-        </div>
       </div>
     </div>
   </main>
-
-  <div class="station-detail-modal" id="stationModal">
-    <div class="station-detail-panel" style="position:relative;">
-      <button class="close-btn" onclick="closeStationModal()">&times;</button>
-      <h2><span id="modalDot" style="width:12px;height:12px;border-radius:50%;display:inline-block;"></span><span id="modalStationName"></span></h2>
-      <p style="font-size:12.5px;color:var(--text-muted);margin:4px 0 0;font-family:var(--mono);" id="modalStationStatus"></p>
-      <div class="detail-grid" id="modalDetails"></div>
-    </div>
-  </div>
+  <div class="station-detail-modal" id="stationModal"><div class="station-detail-panel" style="position:relative;"><button class="close-btn" onclick="closeStationModal()">×</button><h2 id="modalStationName"></h2><div class="detail-grid" id="modalDetails"></div></div></div>
 </div>
-
 <script>
-// ===========================================================================
-// CONFIG
-// ===========================================================================
-// Station list is replaced at runtime by the GAS live-data loader
-// (loadLiveData). This is the offline fallback set.
-let STATIONS = [
-  'Bahabaha PS', 'Magsipit PS', 'Ocaña PS', 'Can-Asujan PS', 'San Roque PS',
-  'Langub PS', 'Relis PS', 'Riverside PS', 'Tapal PS', 'Takdog PS',
-  'Ylaya PS', 'Luanluan PS', 'Talamban Napo PS', 'Camagayan PS', 'Lumbia PS',
-  'Siervas PS', 'Hillside PS', 'Summerville PS', 'Lower Lagang PS',
-  'Proper Perrelos PS', 'Funrock Perrelos PS'
-];
+  // ----- NO HARDCODED STATION DATA – everything comes from GAS -----
+  let STATIONS = [];
+  let PUMP_SETTING = {};
+  let WELL_DEPTH = {};
+  const METRICS = [{key:'voltage',label:'Voltage',unit:'V',color:'--teal'},{key:'current',label:'Current',unit:'A',color:'--blue'},{key:'power',label:'Power',unit:'kW',color:'--amber'},{key:'discharge',label:'Discharge',unit:'L/s',color:'--red'},{key:'pressure',label:'Pressure',unit:'psi',color:'--green'},{key:'levelStatic',label:'Static WL',unit:'m',color:'--purple'},{key:'levelPumping',label:'Pumping WL',unit:'m',color:'--orange'}];
+  const THRESHOLDS = { voltage:{min:180,max:480,criticalMin:170,criticalMax:500}, current:{min:0,max:100,criticalMin:0,criticalMax:120}, power:{min:0,max:100,criticalMin:0,criticalMax:120}, discharge:{min:0,max:100,criticalMin:0,criticalMax:100}, pressure:{min:10,max:200,criticalMin:5,criticalMax:220}, levelStatic:{min:0,max:100,criticalMin:0,criticalMax:100}, levelPumping:{min:0,max:100,criticalMin:0,criticalMax:100} };
+  const BUCKET_COUNT = { weekly:12, monthly:12, yearly:6 };
+  const MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-const BASELINES = {
-  'Bahabaha PS': { voltage:460.0, current:81.9, power:55.47, discharge:45.5, pressure:82.0, levelStatic:17.8, levelPumping:18.0 },
-  'Magsipit PS': { voltage:187.1, current:32.3, power:8.9, discharge:5.3, pressure:44.0, levelStatic:41.2, levelPumping:54.2 },
-  'Ocaña PS': { voltage:209.7, current:48.4, power:14.94, discharge:17.0, pressure:25.0, levelStatic:12.0, levelPumping:17.6 },
-  'Can-Asujan PS': { voltage:188.2, current:28.1, power:7.79, discharge:2.1, pressure:140.0, levelStatic:27.2, levelPumping:45.2 },
-  'San Roque PS': { voltage:221.4, current:13.7, power:4.47, discharge:1.4, pressure:64.0, levelStatic:15.7, levelPumping:25.4 },
-  'Langub PS': { voltage:198.8, current:34.6, power:10.13, discharge:5.1, pressure:170.0, levelStatic:9.4, levelPumping:9.7 },
-  'Relis PS': { voltage:430.7, current:37.5, power:23.78, discharge:13.2, pressure:110.0, levelStatic:9.5, levelPumping:31.8 },
-  'Riverside PS': { voltage:206.4, current:31.0, power:9.42, discharge:4.0, pressure:52.0, levelStatic:16.8, levelPumping:36.5 },
-  'Tapal PS': { voltage:472.0, current:82.9, power:57.61, discharge:21.3, pressure:195.0, levelStatic:30.7, levelPumping:36.7 },
-  'Takdog PS': { voltage:412.0, current:35.9, power:21.78, discharge:8.5, pressure:180.0, levelStatic:12.1, levelPumping:12.1 },
-  'Ylaya PS': { voltage:206.6, current:35.7, power:10.86, discharge:9.2, pressure:75.0, levelStatic:15.7, levelPumping:19.7 },
-  'Luanluan PS': { voltage:204.1, current:63.8, power:19.17, discharge:13.6, pressure:18.0, levelStatic:5.0, levelPumping:6.8 },
-  'Talamban Napo PS': { voltage:202.8, current:58.3, power:17.41, discharge:14.3, pressure:68.0, levelStatic:11.2, levelPumping:12.0 },
-  'Camagayan PS': { voltage:220.9, current:31.3, power:10.18, discharge:5.6, pressure:38.0, levelStatic:15.7, levelPumping:25.4 },
-  'Lumbia PS': { voltage:206.5, current:35.8, power:10.88, discharge:8.8, pressure:68.0, levelStatic:15.7, levelPumping:25.4 },
-  'Siervas PS': { voltage:198.3, current:28.4, power:8.29, discharge:3.7, pressure:120.0, levelStatic:20.6, levelPumping:28.0 },
-  'Hillside PS': { voltage:187.6, current:89.0, power:24.58, discharge:9.3, pressure:180.0, levelStatic:31.2, levelPumping:31.3 },
-  'Summerville PS': { voltage:227.3, current:19.8, power:6.63, discharge:2.1, pressure:60.0, levelStatic:15.0, levelPumping:25.4 },
-  'Lower Lagang PS': { voltage:220.0, current:67.6, power:21.9, discharge:17.8, pressure:35.0, levelStatic:27.7, levelPumping:27.7 },
-  'Proper Perrelos PS': { voltage:181.9, current:55.4, power:14.84, discharge:14.6, pressure:68.0, levelStatic:9.7, levelPumping:10.1 },
-  'Funrock Perrelos PS': { voltage:170.5, current:20.4, power:5.12, discharge:4.4, pressure:48.0, levelStatic:15.7, levelPumping:25.4 }
-};
+  // ----- state -----
+  const state = { period:'monthly', metric:'voltage', metrics:new Set(['voltage']), view:'trend', selected:new Set(), sortBy:'name', searchQuery:'' };
+  let mainChartInstance = null;
+  const dataCache = { weekly:{}, monthly:{}, yearly:{} };
 
-// Pump-setting depth per station. Overwritten per station when live data is
-// loaded (from the asset sheet's "PUMP SETTING"-style spec cells, falling
-// back to these manual values).
-let PUMP_SETTING = {
-  'Bahabaha PS': 27.0, 'Magsipit PS': 67.0, 'Ocaña PS': 52.0, 'Can-Asujan PS': 54.0,
-  'San Roque PS': 42.0, 'Langub PS': 27.0, 'Relis PS': 43.0, 'Riverside PS': 46.0,
-  'Tapal PS': 63.0, 'Takdog PS': 38.0, 'Ylaya PS': 31.0, 'Luanluan PS': 48.0,
-  'Talamban Napo PS': 24.0, 'Camagayan PS': 54.0, 'Lumbia PS': 42.5,
-  'Siervas PS': 36.0, 'Hillside PS': 42.0, 'Summerville PS': 56.0,
-  'Lower Lagang PS': 36.0, 'Proper Perrelos PS': 32.0, 'Funrock Perrelos PS': 48.0
-};
+  // ----- helpers -----
+  function themeColor(v){ return getComputedStyle(document.documentElement).getPropertyValue(v).trim() || '#6d5ae0'; }
+  function escapeHtml(s){ return String(s).replace(/[&<>"]/g, m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[m]||m)); }
+  function buildLabels(period){ const now=new Date(); const n=BUCKET_COUNT[period]; const labels=[]; for(let i=n-1;i>=0;i--){ if(period==='weekly'){ const d=new Date(now); d.setDate(d.getDate()-i*7); labels.push(MONTH_SHORT[d.getMonth()]+' '+d.getDate()); } else if(period==='monthly'){ const d=new Date(now); d.setDate(1); d.setMonth(d.getMonth()-i); labels.push(MONTH_SHORT[d.getMonth()]+' '+d.getFullYear()); } else { const d=new Date(now); d.setFullYear(d.getFullYear()-i); labels.push(String(d.getFullYear())); } } return labels; }
+  function stationColor(s){ const idx=STATIONS.indexOf(s); if(idx<0)return '#6d5ae0'; const hue=Math.round((idx*137.508)%360); const dark=document.documentElement.getAttribute('data-theme')==='dark'; return `hsl(${hue},62%,${dark?68:42}%)`; }
 
-// Total borehole/well depth per station. Overwritten per station when live
-// data is loaded (from the asset sheet's "WELL DEPTH"-style spec cells,
-// falling back to these manual values). Always at or below the pump setting.
-let WELL_DEPTH = {
-  'Bahabaha PS': 46.0, 'Magsipit PS': 88.0, 'Ocaña PS': 74.0, 'Can-Asujan PS': 76.0,
-  'San Roque PS': 64.0, 'Langub PS': 44.0, 'Relis PS': 65.0, 'Riverside PS': 68.0,
-  'Tapal PS': 85.0, 'Takdog PS': 60.0, 'Ylaya PS': 53.0, 'Luanluan PS': 70.0,
-  'Talamban Napo PS': 46.0, 'Camagayan PS': 76.0, 'Lumbia PS': 64.5,
-  'Siervas PS': 58.0, 'Hillside PS': 64.0, 'Summerville PS': 78.0,
-  'Lower Lagang PS': 58.0, 'Proper Perrelos PS': 54.0, 'Funrock Perrelos PS': 70.0
-};
+  // ----- render stations (from live data) -----
+  function getOverallStatus(s){ if(!dataCache[state.period]?.levelPumping?.[s]) return 'online'; const arr=dataCache[state.period].levelPumping[s]; const latest=arr[arr.length-1]; if(PUMP_SETTING[s] && PUMP_SETTING[s]-latest<5) return 'critical'; let hasWarn=false; for(const m of METRICS){ const v=dataCache[state.period][m.key]?.[s]?.[dataCache[state.period][m.key][s].length-1]; if(v===undefined)continue; const t=THRESHOLDS[m.key]; if(v<t.criticalMin||v>t.criticalMax)return 'critical'; if(v<t.min||v>t.max)hasWarn=true; } return hasWarn?'warning':'online'; }
+  function getFilteredStations(){ let f=STATIONS.filter(s=>!state.searchQuery||s.toLowerCase().includes(state.searchQuery.toLowerCase())); if(state.sortBy==='status'){ const order={critical:0,warning:1,online:2}; f.sort((a,b)=>order[getOverallStatus(a)]-order[getOverallStatus(b)]); } else f.sort((a,b)=>a.localeCompare(b)); return f; }
+  function renderStationChips(){ const wrap=document.getElementById('stationChips'); const filtered=getFilteredStations(); if(!STATIONS.length){ wrap.innerHTML='<div class="empty-note">No stations loaded. Sync with GAS.</div>'; document.getElementById('stationCount').textContent='0'; return; }
+  wrap.innerHTML=filtered.map(s=>{ const active=state.selected.has(s); const dot=stationColor(s); const status=getOverallStatus(s); return `<div class="station-row ${active?'active':''}" style="--dot:${dot};" onclick="toggleStation('${escapeHtml(s)}')" ondblclick="showStationDetail('${escapeHtml(s)}')"><i></i><span class="sname">${escapeHtml(s)}</span><span class="status-badge ${status}">${status}</span></div>`; }).join(''); document.getElementById('stationCount').textContent=`${state.selected.size} of ${STATIONS.length}`; }
+  function toggleStation(n){ if(state.selected.has(n)) state.selected.delete(n); else state.selected.add(n); renderAll(); }
+  function selectAllStations(){ getFilteredStations().forEach(s=>state.selected.add(s)); renderAll(); }
+  function deselectAllStations(){ state.selected.clear(); renderAll(); }
+  document.getElementById('stationSearch').addEventListener('input',e=>{ state.searchQuery=e.target.value; renderStationChips(); });
 
-// Thresholds for alerts (min/max healthy ranges)
-const THRESHOLDS = {
-  voltage: { min: 180, max: 480, criticalMin: 170, criticalMax: 500 },
-  current: { min: 0, max: 100, criticalMin: 0, criticalMax: 120 },
-  power: { min: 0, max: 100, criticalMin: 0, criticalMax: 120 },
-  discharge: { min: 0, max: 100, criticalMin: 0, criticalMax: 100 },
-  pressure: { min: 10, max: 200, criticalMin: 5, criticalMax: 220 },
-  levelStatic: { min: 0, max: 100, criticalMin: 0, criticalMax: 100 },
-  levelPumping: { min: 0, max: 100, criticalMin: 0, criticalMax: 100 }
-};
+  // ----- modal -----
+  function showStationDetail(s){ if(!STATIONS.length)return; const modal=document.getElementById('stationModal'); document.getElementById('modalStationName').textContent=s; const details=document.getElementById('modalDetails'); let html=''; for(const m of METRICS){ const val=dataCache[state.period]?.[m.key]?.[s]?.[dataCache[state.period][m.key][s].length-1]; html+=`<div class="detail-item"><div class="label">${m.label} (${m.unit})</div><div class="value">${val!==undefined?val.toFixed(1):'—'}</div></div>`; } details.innerHTML=html; modal.classList.add('active'); }
+  function closeStationModal(){ document.getElementById('stationModal').classList.remove('active'); }
+  document.getElementById('stationModal').addEventListener('click',e=>{ if(e.target.id==='stationModal') closeStationModal(); });
 
-function stationColor(station) {
-  const idx = STATIONS.indexOf(station);
-  const hue = Math.round((idx * 137.508) % 360);
-  const dark = document.documentElement.getAttribute('data-theme') === 'dark';
-  const sat = 62;
-  const light = dark ? 68 : 42;
-  return `hsl(${hue}, ${sat}%, ${light}%)`;
-}
+  // ----- stats -----
+  function renderStats(){ const row=document.getElementById('statsRow'); const selected=STATIONS.filter(s=>state.selected.has(s)); if(!selected.length || !STATIONS.length){ row.innerHTML='<div class="stat"><div class="label">Select stations</div></div>'; return; }
+  function avg(k){ const vals=selected.map(s=>{ const a=dataCache[state.period]?.[k]?.[s]; return a?a[a.length-1]:0; }); return vals.reduce((a,b)=>a+b,0)/vals.length; }
+  function sum(k){ return selected.map(s=>{ const a=dataCache[state.period]?.[k]?.[s]; return a?a[a.length-1]:0; }).reduce((a,b)=>a+b,0); }
+  const tiles=[{label:'Voltage',v:avg('voltage').toFixed(0),u:'V'},{label:'Current',v:avg('current').toFixed(1),u:'A'},{label:'Power',v:sum('power').toFixed(1),u:'kW'},{label:'Discharge',v:sum('discharge').toFixed(1),u:'L/s'},{label:'Pressure',v:avg('pressure').toFixed(0),u:'psi'},{label:'Static WL',v:avg('levelStatic').toFixed(1),u:'m'},{label:'Pumping WL',v:avg('levelPumping').toFixed(1),u:'m'}];
+  row.innerHTML=tiles.map(t=>`<div class="stat" onclick="selectMetric('${t.label.toLowerCase().replace(' ','')}')" style="cursor:pointer;"><div class="label">${t.label}</div><div class="value">${t.v}<span>${t.u}</span></div></div>`).join(''); }
 
-const METRICS = [
-  { key: 'voltage',      label: 'Voltage',              unit: 'V',   color: '--teal',   meta: 'motor line voltage, output side of the VFD' },
-  { key: 'current',      label: 'Current',              unit: 'A',   color: '--blue',   meta: 'per-phase running current, output side of the VFD' },
-  { key: 'power',        label: 'Power',                unit: 'kW',  color: '--amber',  meta: 'calculated: √3 × V × I × 0.85 assumed power factor' },
-  { key: 'discharge',    label: 'Discharge',             unit: 'L/s', color: '--red',    meta: 'flow rate at the discharge line' },
-  { key: 'pressure',     label: 'Pressure',              unit: 'psi', color: '--green',  meta: 'discharge header pressure' },
-  { key: 'levelStatic',  label: 'Static Water Level',   unit: 'm',   color: '--purple', meta: 'depth to water, pump at rest — dashed lines mark each station\'s pump setting depth' },
-  { key: 'levelPumping', label: 'Pumping Water Level',  unit: 'm',   color: '--orange', meta: 'depth to water while running — dashed lines mark each station\'s pump setting depth' }
-];
+  // ----- metric tabs -----
+  function renderMetricTabs(){ const wrap=document.getElementById('metricTabs'); wrap.innerHTML=METRICS.map(m=>`<button class="metric-tab ${state.metrics.has(m.key)?'active':''}" onclick="toggleMetric('${m.key}')">${m.label}<span class="unit">${m.unit}</span></button>`).join(''); }
+  function toggleMetric(k){ if(state.metrics.has(k)){ if(state.metrics.size===1)return; state.metrics.delete(k); } else state.metrics.add(k); commitMetric(); }
+  function selectMetric(k){ state.metrics=new Set([k]); commitMetric(); }
+  function commitMetric(){ state.metric=[...state.metrics][0]||'voltage'; renderMetricTabs(); if(state.view==='trend') buildChart(); else if(state.view==='compare') renderCompare(); else renderHeatmap(); }
 
-const CHART_FONT = { family: "'IBM Plex Mono', monospace", size: 11 };
-const MONTH_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  // ----- chart -----
+  function buildChart(){ const canvas=document.getElementById('mainChart'); const labels=buildLabels(state.period); const selected=STATIONS.filter(s=>state.selected.has(s)); if(!selected.length || !STATIONS.length){ if(mainChartInstance){ mainChartInstance.destroy(); mainChartInstance=null; } return; }
+  const isDark=document.documentElement.getAttribute('data-theme')==='dark';
+  const tickColor=isDark?'#a9b8e8':'#6d7fb5'; const gridColor=isDark?'#233152':'#dfe8fa';
+  const keys=[...state.metrics]; const datasets=keys.map(k=>{ const m=METRICS.find(x=>x.key===k); const color=themeColor(m.color); const avg=labels.map((_,i)=>{ const vals=selected.map(s=>{ const a=dataCache[state.period]?.[k]?.[s]; return a?a[i]||0:0; }); return vals.reduce((a,b)=>a+b,0)/vals.length; }); return { label:`${m.label} (${m.unit})`, data:avg, borderColor:color, backgroundColor:color, borderWidth:2.5, tension:.35, pointRadius:3, fill:false }; });
+  if(keys.some(k=>k==='levelStatic'||k==='levelPumping')){ selected.forEach(s=>{ if(PUMP_SETTING[s]!==undefined){ datasets.push({ label:s+' Pump Setting', data:labels.map(()=>PUMP_SETTING[s]), borderColor:stationColor(s), borderWidth:1.5, borderDash:[6,4], pointRadius:0, fill:false }); } }); }
+  if(mainChartInstance) mainChartInstance.destroy();
+  mainChartInstance=new Chart(canvas,{ type:'line', data:{labels,datasets}, options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'top', labels:{ color:tickColor, font:{size:10} } } }, scales:{ x:{ ticks:{color:tickColor,font:{size:10}}, grid:{color:gridColor} }, y:{ ticks:{color:tickColor,font:{size:10}}, grid:{color:gridColor} } } } }); }
 
-// ===========================================================================
-// STATE
-// ===========================================================================
-const state = {
-  period: 'monthly',
-  metric: 'voltage',
-  metrics: new Set(['voltage']),
-  view: 'trend',
-  selected: new Set(STATIONS),
-  sortBy: 'name',
-  searchQuery: ''
-};
+  // ----- compare & heatmap -----
+  function renderCompare(){ const box=document.getElementById('compareView'); const selected=STATIONS.filter(s=>state.selected.has(s)); if(!selected.length || !STATIONS.length){ box.innerHTML='<div class="empty-note">Select stations</div>'; return; }
+  box.innerHTML=[...state.metrics].map(k=>{ const m=METRICS.find(x=>x.key===k); const sorted=selected.map(s=>{ const a=dataCache[state.period]?.[k]?.[s]; return {station:s,value:a?a[a.length-1]:0}; }).sort((a,b)=>b.value-a.value); const max=Math.max(...sorted.map(r=>r.value),1); return `<div style="margin-bottom:8px;"><span style="font-family:var(--mono);font-size:9px;color:${themeColor(m.color)};">${m.label}</span>${sorted.map(r=>`<div class="rank-row"><span class="rname">${escapeHtml(r.station)}</span><div class="rbar-wrap"><div class="rbar" style="width:${(r.value/max*100)}%;background:${themeColor(m.color)};"></div></div><span class="rval">${r.value.toFixed(1)}</span></div>`).join('')}</div>`; }).join(''); }
+  function renderHeatmap(){ const box=document.getElementById('heatmapView'); const selected=STATIONS.filter(s=>state.selected.has(s)); if(!selected.length || !STATIONS.length){ box.innerHTML='<div class="empty-note">Select stations</div>'; return; }
+  let html='<table><thead><tr><th>Station</th>'+METRICS.map(m=>`<th>${m.label}</th>`).join('')+'</tr></thead><tbody>';
+  selected.forEach(s=>{ html+='<tr><td>'+escapeHtml(s)+'</td>'; METRICS.forEach(m=>{ const a=dataCache[state.period]?.[m.key]?.[s]; const v=a?a[a.length-1]:0; const t=THRESHOLDS[m.key]; let bg='rgba(35,192,139,0.3)'; if(v<t.criticalMin||v>t.criticalMax) bg='rgba(239,77,106,0.5)'; else if(v<t.min||v>t.max) bg='rgba(240,166,60,0.4)'; html+=`<td style="background:${bg};">${v.toFixed(1)}</td>`; }); html+='</tr>'; }); html+='</tbody></table>'; box.innerHTML=html; }
 
-function themeColor(varName, fallback) {
-  const v = getComputedStyle(document.documentElement).getPropertyValue(varName).trim();
-  return v || fallback;
-}
+  // ----- view toggle -----
+  function setView(v){ state.view=v; document.querySelectorAll('#viewToggle button').forEach(b=>b.classList.toggle('active',b.dataset.view===v)); document.getElementById('trendChartWrap').style.display=v==='trend'?'':'none'; document.getElementById('compareView').style.display=v==='compare'?'':'none'; document.getElementById('heatmapView').style.display=v==='heatmap'?'':'none'; if(v==='trend') buildChart(); else if(v==='compare') renderCompare(); else renderHeatmap(); }
+  document.getElementById('viewToggle').addEventListener('click',e=>{ const btn=e.target.closest('button[data-view]'); if(btn) setView(btn.dataset.view); });
 
-function toggleTheme() {
-  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-  const next = isDark ? 'light' : 'dark';
-  if (next === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
-  else document.documentElement.removeAttribute('data-theme');
-  try { localStorage.setItem('agus-theme', next); } catch (e) {}
-  renderAll();
-}
+  // ----- period -----
+  document.getElementById('periodTabs').addEventListener('click',e=>{ const btn=e.target.closest('button[data-period]'); if(!btn)return; document.querySelectorAll('#periodTabs button').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); state.period=btn.dataset.period; renderAll(); });
 
-// ===========================================================================
-// SEEDED SAMPLE DATA
-// ===========================================================================
-function hashString(str) {
-  let h = 0;
-  for (let i = 0; i < str.length; i++) { h = (Math.imul(31, h) + str.charCodeAt(i)) | 0; }
-  return h >>> 0;
-}
-function mulberry32(seed) {
-  return function () {
-    seed |= 0; seed = (seed + 0x6D2B79F5) | 0;
-    let t = Math.imul(seed ^ (seed >>> 15), 1 | seed);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
+  // ----- theme -----
+  function toggleTheme(){ const d=document.documentElement; const dark=d.getAttribute('data-theme')==='dark'; if(dark)d.removeAttribute('data-theme'); else d.setAttribute('data-theme','dark'); try{localStorage.setItem('agus-theme',dark?'light':'dark');}catch(e){} renderAll(); }
 
-const BUCKET_COUNT = { weekly: 12, monthly: 12, yearly: 6 };
+  // ----- export / print -----
+  document.getElementById('exportCsvBtn').addEventListener('click',()=>{ if(!STATIONS.length)return; const keys=[...state.metrics]; const labels=buildLabels(state.period); const selected=STATIONS.filter(s=>state.selected.has(s)); if(!selected.length)return; let csv=''; keys.forEach(k=>{ const m=METRICS.find(x=>x.key===k); csv+=`${m.label} (${m.unit})\n`; csv+='Period,'+selected.map(s=>`"${s}"`).join(',')+'\n'; labels.forEach((l,i)=>{ csv+=l+','+selected.map(s=>{ const a=dataCache[state.period]?.[k]?.[s]; return a?a[i]?.toFixed(2)||0:0; }).join(',')+'\n'; }); csv+='\n'; }); const blob=new Blob([csv],{type:'text/csv'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='analytics.csv'; a.click(); });
+  document.getElementById('printBtn').addEventListener('click',()=>window.print());
 
-function buildLabels(period) {
-  const now = new Date();
-  const n = BUCKET_COUNT[period];
-  const labels = [];
-  for (let i = n - 1; i >= 0; i--) {
-    if (period === 'weekly') {
-      const d = new Date(now); d.setDate(d.getDate() - i * 7);
-      labels.push(MONTH_SHORT[d.getMonth()] + ' ' + d.getDate());
-    } else if (period === 'monthly') {
-      const d = new Date(now); d.setDate(1); d.setMonth(d.getMonth() - i);
-      labels.push(MONTH_SHORT[d.getMonth()] + ' ' + d.getFullYear());
-    } else {
-      const d = new Date(now); d.setFullYear(d.getFullYear() - i);
-      labels.push(String(d.getFullYear()));
-    }
+  // ----- GAS live data loader (NO HARDCODED FALLBACK) -----
+  const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbzeEeGTvZmJUOHpHLS0Zijgd7X1-JvdTTIymVwGW6R616dIjDlssJCVFx-gTJgfRr7P5A/exec';
+
+  function gasNum(v){ if(v===null||v===undefined||v==='')return null; const n=parseFloat(String(v).replace(/[^0-9.\-]/g,'')); return isNaN(n)?null:n; }
+  function gasReading(entry, metricKey){
+    if(metricKey==='voltage'||metricKey==='current'){ const key=metricKey==='voltage'?'voltage':'current'; const phases=key==='voltage'?['L1L2','L1L3','L2L3']:['L1','L2','L3']; let vals=phases.map(ph=>gasNum(entry[key+'Before'+ph])); if(!vals.some(v=>v!==null)) vals=phases.map(ph=>gasNum(entry[key+'After'+ph])); vals=vals.filter(v=>v!==null); if(!vals.length)return null; return vals.reduce((a,b)=>a+b,0)/vals.length; }
+    if(metricKey==='power'){ const v=gasReading(entry,'voltage'); const i=gasReading(entry,'current'); if(v===null||i===null)return null; return Math.sqrt(3)*v*i*0.85/1000; }
+    const field={discharge:'dischargeLps',pressure:'pressurePsi',levelStatic:'staticWl',levelPumping:'pumpingWl'}[metricKey];
+    return gasNum(entry[field]);
   }
-  return labels;
-}
+  function gasBucketEnds(period){ const now=new Date(); const n=BUCKET_COUNT[period]; const ends=[]; for(let i=n-1;i>=0;i--){ const d=new Date(now); if(period==='weekly'){ d.setDate(d.getDate()-i*7); } else if(period==='monthly'){ d.setDate(1); d.setHours(0,0,0,0); d.setMonth(d.getMonth()-i); d.setMonth(d.getMonth()+1,0); d.setHours(23,59,59,999); } else { d.setHours(0,0,0,0); d.setFullYear(d.getFullYear()-i); d.setMonth(11,31); d.setHours(23,59,59,999); } ends.push(d.getTime()); } return ends; }
+  function parseGasDate(raw){ if(!raw)return null; const d=new Date(raw); if(!isNaN(d.getTime()))return d.getTime(); const m=String(raw).match(/(\d{4})[-/](\d{1,2})[-/](\d{1,2})/); if(m)return new Date(+m[1],+m[2]-1,+m[3]).getTime(); return null; }
+  function buildLiveSeries(entries, metricKey, period){ const ends=gasBucketEnds(period); const n=ends.length; const series=new Array(n).fill(null); const pts=[]; (entries||[]).forEach(en=>{ const t=parseGasDate(en.date); const v=gasReading(en,metricKey); if(t!==null&&v!==null)pts.push({t,v}); }); if(!pts.length)return series; pts.sort((a,b)=>a.t-b.t); let lastVal=null; pts.forEach(pt=>{ let bi=0; for(let i=0;i<n;i++){ if(pt.t<=ends[i]){ bi=i; break; } } lastVal=pt.v; series[bi]=pt.v; }); let carry=null; for(let i=0;i<n;i++){ if(series[i]!==null)carry=series[i]; else if(carry!==null)series[i]=carry; } return series; }
+  function pumpSettingFromSpecs(specs, fallback){ let val=null; (specs||[]).forEach(s=>{ if(/SETTING|SET\b|SET DEPTH/i.test(String(s.label))){ const v=gasNum(String(s.value)); if(v!==null&&v>0)val=v; } }); return val!==null?val:(fallback||50); }
+  function wellDepthFromSpecs(specs, fallback){ let val=null; (specs||[]).forEach(s=>{ const isSection=/WELL|BORE|BOREHOLE/i.test(String(s.section)); const isLabel=/WELL DEPTH|BOREHOLE DEPTH|TOTAL DEPTH|WELL DEPTH M/i.test(String(s.label)); if(isSection&&isLabel){ const v=gasNum(String(s.value)); if(v!==null&&v>0)val=v; } }); return val!==null?val:(fallback||60); }
 
-function genSeries(station, metricKey, period) {
-  const rand = mulberry32(hashString(station + '::' + metricKey));
-  const n = BUCKET_COUNT[period];
-  const now = new Date();
-  const base = BASELINES[station][metricKey];
+  async function loadLiveData(){
+    const statusEl=document.getElementById('gasStatus');
+    try {
+      statusEl.textContent='connecting…';
+      const listResp=await fetch(GAS_API_URL+'?action=assets');
+      const list=await listResp.json();
+      if(!list.ok)throw new Error(list.error||'GAS error');
+      const assets=(list.assets||[]).filter(a=>a.category==='Pumping Stations');
+      if(!assets.length)throw new Error('No pumping stations found');
+      statusEl.textContent='loading '+assets.length+' stations…';
+      const details=await Promise.all(assets.map(a=>fetch(GAS_API_URL+'?action=asset&id='+encodeURIComponent(a.id)).then(r=>r.json()).then(j=>({info:a,asset:j.asset}))));
 
-  const noiseFrac = {
-    voltage: 0.03, current: 0.08, power: 0.1, discharge: 0.12,
-    pressure: 0.06, levelStatic: 0.04, levelPumping: 0.05
-  }[metricKey];
-  const noiseAmp = base * noiseFrac;
+      const newStations=[];
+      const newPump={};
+      const newDepth={};
+      const live={weekly:{},monthly:{},yearly:{}};
+      METRICS.forEach(m=>{ live.weekly[m.key]={}; live.monthly[m.key]={}; live.yearly[m.key]={}; });
 
-  const drift = (rand() - 0.5) * noiseAmp * 0.6;
-  const values = [];
-  for (let i = n - 1; i >= 0; i--) {
-    let monthIdx;
-    if (period === 'weekly') { const d = new Date(now); d.setDate(d.getDate() - i * 7); monthIdx = d.getMonth(); }
-    else if (period === 'monthly') { const d = new Date(now); d.setMonth(d.getMonth() - i); monthIdx = d.getMonth(); }
-    else { monthIdx = 6; }
+      details.forEach(d=>{ const asset=d.asset; if(!asset)return; const name=String(asset.title||d.info.title||d.info.id||'').trim(); if(!name)return; newStations.push(name); newPump[name]=pumpSettingFromSpecs(asset.specs,50); newDepth[name]=wellDepthFromSpecs(asset.specs,60); const log=Array.isArray(asset.log)?asset.log:[]; METRICS.forEach(m=>{ ['weekly','monthly','yearly'].forEach(p=>{ live[p][m.key][name]=buildLiveSeries(log,m.key,p); }); }); });
 
-    let seasonal = 0;
-    if (metricKey === 'levelStatic' || metricKey === 'levelPumping') {
-      seasonal = -Math.cos((monthIdx - 7) / 12 * 2 * Math.PI) * (noiseAmp * 1.3);
-    }
-    const noise = (rand() - 0.5) * noiseAmp * 2;
-    const trend = drift * ((n - 1 - i) / n);
-    values.push(Math.max(0, base + seasonal + noise + trend));
-  }
-  return values;
-}
+      if(!newStations.length)throw new Error('No readable station data');
+      // fill missing with zeros
+      newStations.forEach(name=>{ METRICS.forEach(m=>{ ['weekly','monthly','yearly'].forEach(p=>{ const arr=live[p][m.key][name]; if(!arr||arr.every(v=>v===null)){ live[p][m.key][name]=new Array(BUCKET_COUNT[p]).fill(0); } }); }); });
 
-const dataCache = {};
-['weekly', 'monthly', 'yearly'].forEach(period => {
-  dataCache[period] = {};
-  METRICS.forEach(m => {
-    dataCache[period][m.key] = {};
-    STATIONS.forEach(s => { dataCache[period][m.key][s] = genSeries(s, m.key, period); });
-  });
-});
-
-// ===========================================================================
-// STATION CHIPS — with search, sort, and status badges
-// ===========================================================================
-function getStationStatus(station, metricKey) {
-  const val = dataCache[state.period][metricKey][station];
-  const latest = val[val.length - 1];
-  const thresholds = THRESHOLDS[metricKey];
-  if (latest < thresholds.criticalMin || latest > thresholds.criticalMax) return 'critical';
-  if (latest < thresholds.min || latest > thresholds.max) return 'warning';
-  return 'online';
-}
-
-function getStationOverallStatus(station) {
-  const statuses = METRICS.map(m => getStationStatus(station, m.key));
-  if (statuses.includes('critical')) return 'critical';
-  if (statuses.includes('warning')) return 'warning';
-
-  const pumpingArr = dataCache[state.period].levelPumping[station];
-  const pumpingLatest = pumpingArr[pumpingArr.length - 1];
-  if (PUMP_SETTING[station] - pumpingLatest < 5) return 'critical';
-
-  return 'online';
-}
-
-function getFilteredStations() {
-  let filtered = STATIONS.filter(s => {
-    if (!state.searchQuery) return true;
-    return s.toLowerCase().includes(state.searchQuery.toLowerCase());
-  });
-
-  if (state.sortBy === 'status') {
-    const order = { critical: 0, warning: 1, online: 2 };
-    filtered.sort((a, b) => order[getStationOverallStatus(a)] - order[getStationOverallStatus(b)]);
-  } else {
-    filtered.sort((a, b) => a.localeCompare(b));
-  }
-
-  return filtered;
-}
-
-function renderStationChips() {
-  const wrap = document.getElementById('stationChips');
-  const filtered = getFilteredStations();
-  
-  wrap.innerHTML = filtered.map(s => {
-    const active = state.selected.has(s);
-    const dot = stationColor(s);
-    const status = getStationOverallStatus(s);
-    return `<div class="station-row ${active ? 'active' : ''}" style="--dot:${dot};" onclick="toggleStation('${escapeAttr(s)}')" ondblclick="showStationDetail('${escapeAttr(s)}')">
-      <i></i><span class="sname">${escapeHtml(s)}</span>
-      <span class="status-badge ${status}">${status}</span>
-    </div>`;
-  }).join('');
-  
-  document.getElementById('stationCount').textContent = `${state.selected.size} of ${STATIONS.length} selected`;
-}
-
-function toggleStation(name) {
-  if (state.selected.has(name)) state.selected.delete(name); else state.selected.add(name);
-  renderAll();
-}
-
-function selectAllStations() { 
-  const filtered = getFilteredStations();
-  filtered.forEach(s => state.selected.add(s));
-  renderAll(); 
-}
-
-function deselectAllStations() { state.selected.clear(); renderAll(); }
-
-function sortStations(by) {
-  state.sortBy = by;
-  renderStationChips();
-}
-
-function filterStations(query) {
-  state.searchQuery = query;
-  renderStationChips();
-}
-
-// ===========================================================================
-// STATION DETAIL MODAL
-// ===========================================================================
-function showStationDetail(station) {
-  const modal = document.getElementById('stationModal');
-  const dot = document.getElementById('modalDot');
-  const name = document.getElementById('modalStationName');
-  const status = document.getElementById('modalStationStatus');
-  const details = document.getElementById('modalDetails');
-
-  dot.style.background = stationColor(station);
-  name.textContent = station;
-  
-  const overallStatus = getStationOverallStatus(station);
-  status.textContent = `Status: ${overallStatus.charAt(0).toUpperCase() + overallStatus.slice(1)} | Pump Setting: ${PUMP_SETTING[station]} m`;
-  status.style.color = overallStatus === 'critical' ? 'var(--red)' : overallStatus === 'warning' ? 'var(--amber)' : 'var(--green)';
-
-  const baselines = BASELINES[station];
-  details.innerHTML = METRICS.map(m => {
-    const val = baselines[m.key];
-    const threshold = THRESHOLDS[m.key];
-    let statusClass = 'online';
-    if (val < threshold.criticalMin || val > threshold.criticalMax) statusClass = 'critical';
-    else if (val < threshold.min || val > threshold.max) statusClass = 'warning';
-    
-    return `<div class="detail-item">
-      <div class="label">${m.label} (${m.unit})</div>
-      <div class="value" style="color:${statusClass === 'critical' ? 'var(--red)' : statusClass === 'warning' ? 'var(--amber)' : 'var(--teal)'}">${val}</div>
-    </div>`;
-  }).join('');
-
-  modal.classList.add('active');
-}
-
-function closeStationModal() {
-  document.getElementById('stationModal').classList.remove('active');
-}
-
-// ===========================================================================
-// FLEET SUMMARY STATS — with trend indicators
-// ===========================================================================
-function renderStats() {
-  const row = document.getElementById('statsRow');
-  const labels = buildLabels(state.period);
-  document.getElementById('statsHint').textContent = 'latest ' + (labels[labels.length - 1] || '') + ' · selected stations';
-
-  const selected = STATIONS.filter(s => state.selected.has(s));
-  if (!selected.length) {
-    row.innerHTML = `<div class="stat" style="grid-column:1/-1;"><div class="sub" style="margin-top:0;">Select at least one station to see fleet totals.</div></div>`;
-    return;
-  }
-
-  function latestAvg(metricKey) {
-    const vals = selected.map(s => {
-      const arr = dataCache[state.period][metricKey][s];
-      return arr[arr.length - 1];
-    });
-    return vals.reduce((a, b) => a + b, 0) / vals.length;
-  }
-
-  function latestSum(metricKey) {
-    return selected.map(s => {
-      const arr = dataCache[state.period][metricKey][s];
-      return arr[arr.length - 1];
-    }).reduce((a, b) => a + b, 0);
-  }
-
-  function latestDrawdownAvg() {
-    const vals = selected.map(s => {
-      const staticArr = dataCache[state.period].levelStatic[s];
-      const pumpArr = dataCache[state.period].levelPumping[s];
-      return Math.abs((staticArr[staticArr.length - 1] || 0) - (pumpArr[pumpArr.length - 1] || 0));
-    });
-    return vals.reduce((a, b) => a + b, 0) / vals.length;
-  }
-
-  function getTrend(metricKey) {
-    if (state.period === 'yearly') return 'flat';
-    const current = latestAvg(metricKey);
-    const labels = buildLabels(state.period);
-    const prevIdx = labels.length - 2;
-    if (prevIdx < 0) return 'flat';
-    
-    const prevVals = selected.map(s => dataCache[state.period][metricKey][s][prevIdx]);
-    const prevAvg = prevVals.reduce((a, b) => a + b, 0) / prevVals.length;
-    const diff = current - prevAvg;
-    const threshold = prevAvg * 0.02;
-    
-    if (diff > threshold) return 'up';
-    if (diff < -threshold) return 'down';
-    return 'flat';
-  }
-
-  function trendIcon(trend) {
-    if (trend === 'up') return '<span class="trend up">↑</span>';
-    if (trend === 'down') return '<span class="trend down">↓</span>';
-    return '<span class="trend flat">→</span>';
-  }
-
-  const tiles = [
-    { label: 'Avg Voltage', value: latestAvg('voltage').toFixed(0), unit: 'V', metric: 'voltage' },
-    { label: 'Avg Current', value: latestAvg('current').toFixed(1), unit: 'A', metric: 'current' },
-    { label: 'Total Power', value: latestSum('power').toFixed(1), unit: 'kW', metric: 'power' },
-    { label: 'Total Discharge', value: latestSum('discharge').toFixed(1), unit: 'L/s', metric: 'discharge' },
-    { label: 'Avg Pressure', value: latestAvg('pressure').toFixed(0), unit: 'psi', metric: 'pressure' },
-    { label: 'Avg Static Level', value: latestAvg('levelStatic').toFixed(1), unit: 'm', metric: 'levelStatic' },
-    { label: 'Avg Pumping Level', value: latestAvg('levelPumping').toFixed(1), unit: 'm', metric: 'levelPumping' },
-    { label: 'Avg Drawdown', value: latestDrawdownAvg().toFixed(1), unit: 'm', metric: '' }
-  ];
-
-  row.innerHTML = tiles.map(t => `
-    <div class="stat" ${t.metric ? `onclick="selectMetric('${t.metric}')" style="cursor:pointer;" title="Click to view ${t.label} chart"` : ''}>
-      ${t.metric ? trendIcon(getTrend(t.metric)) : ''}
-      <div class="label">${t.label}</div>
-      <div class="value">${t.value}<span>${t.unit}</span></div>
-      <div class="sub">${selected.length} station${selected.length > 1 ? 's' : ''}</div>
-    </div>`).join('');
-}
-
-// ===========================================================================
-// ALERT BANNER (removed)
-// ===========================================================================
-function renderAlerts() {}
-
-// ===========================================================================
-// METRIC TABS
-// ===========================================================================
-let mainChartInstance = null;
-
-// Force the chart to re-measure and refill its container whenever the
-// container's actual box size changes — this covers window resizes AND
-// browser zoom (Ctrl+/Ctrl-/pinch), which don't always trigger Chart.js's
-// own built-in resize handling reliably across browsers/zoom steps.
-(function setupChartAutoFit() {
-  let rafId = null;
-  let settleId = null;
-  function refit() {
-    if (rafId) cancelAnimationFrame(rafId);
-    if (settleId) clearTimeout(settleId);
-    rafId = requestAnimationFrame(() => {
-      if (mainChartInstance) mainChartInstance.resize();
-      // Large zoom jumps (e.g. down to 50%) can settle layout a beat after
-      // the first paint — take a second pass once things are quiet.
-      settleId = setTimeout(() => {
-        if (mainChartInstance) mainChartInstance.resize();
-      }, 150);
-    });
-  }
-  const target = document.getElementById('trendChartWrap');
-  if (target && 'ResizeObserver' in window) {
-    new ResizeObserver(refit).observe(target);
-  }
-  window.addEventListener('resize', refit);
-  window.addEventListener('orientationchange', refit);
-  if (window.visualViewport) {
-    window.visualViewport.addEventListener('resize', refit);
-  }
-})();
-
-// When embedded inside AGUS main's "AGUS Analytics" module overlay, the
-// parent page is the source of truth for zoom size — it pushes its
-// browser-zoom factor here so this app visually matches it instead of
-// scaling itself independently. No-op when opened standalone (no message
-// ever arrives, so nothing changes from default behavior).
-window.addEventListener('message', (e) => {
-  if (!e.data || e.data.type !== 'agus-zoom-sync') return;
-  const factor = e.data.factor;
-  if (typeof factor !== 'number' || !isFinite(factor) || factor <= 0) return;
-  // 'zoom' rescales layout the same way native browser zoom does (Chrome/
-  // Edge/Safari); unsupported in Firefox, where this simply has no effect.
-  document.documentElement.style.zoom = factor;
-});
-
-function selectedMetricKeys() {
-  return METRICS.map(m => m.key).filter(k => state.metrics.has(k));
-}
-
-function metricMetaText() {
-  const keys = selectedMetricKeys();
-  if (keys.length === 1) {
-    const m = METRICS.find(x => x.key === keys[0]);
-    return m ? m.meta : '';
-  }
-  return keys.map(k => METRICS.find(x => x.key === k).label).join(' + ') +
-    ' — combined view · each line plots the fleet average across selected stations on its own axis';
-}
-
-function metricUnitsText() {
-  const keys = selectedMetricKeys();
-  if (keys.length === 1) return METRICS.find(x => x.key === keys[0]).unit;
-  return keys.map(k => METRICS.find(x => x.key === k).unit).join(' | ');
-}
-
-function updateMetricHeader() {
-  document.getElementById('metricMeta').textContent = metricMetaText();
-  document.getElementById('metricUnitHint').textContent = metricUnitsText();
-}
-
-function renderMetricTabs() {
-  const wrap = document.getElementById('metricTabs');
-  wrap.innerHTML = METRICS.map(m => `
-    <button type="button" class="metric-tab ${state.metrics.has(m.key) ? 'active' : ''}" onclick="toggleMetric('${m.key}')" title="Click to overlay on the chart">
-      ${m.label}<span class="unit">${m.unit}</span>
-    </button>`).join('');
-}
-
-function toggleMetric(key) {
-  if (state.metrics.has(key)) {
-    if (state.metrics.size === 1) return;
-    state.metrics.delete(key);
-  } else {
-    state.metrics.add(key);
-  }
-  commitMetricSelection();
-}
-
-function selectMetric(key) {
-  state.metrics = new Set([key]);
-  commitMetricSelection();
-}
-
-function commitMetricSelection() {
-  const keys = selectedMetricKeys();
-  state.metric = keys[0] || 'voltage';
-  renderMetricTabs();
-  updateMetricHeader();
-  if (state.view === 'trend') buildOrUpdateChart();
-  else if (state.view === 'compare') renderCompareView();
-  else renderHeatmapView();
-}
-
-// ===========================================================================
-// TREND CHART
-// ===========================================================================
-function buildOrUpdateChart() {
-  const canvas = document.getElementById('mainChart');
-  if (!canvas) return;
-
-  const labels = buildLabels(state.period);
-  const selected = STATIONS.filter(s => state.selected.has(s));
-
-  const wrap = canvas.parentElement;
-  let note = wrap.querySelector('.empty-note');
-  if (!selected.length) {
-    canvas.classList.add('hidden');
-    if (!note) { note = document.createElement('div'); note.className = 'empty-note'; wrap.appendChild(note); }
-    note.textContent = 'Select at least one station to plot this parameter';
-    if (mainChartInstance) { mainChartInstance.destroy(); mainChartInstance = null; }
-    return;
-  }
-  canvas.classList.remove('hidden');
-  if (note) note.remove();
-
-  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-  const tickColor = isDark ? '#a9b8e8' : '#6d7fb5';
-  const gridColor = isDark ? '#233152' : '#dfe8fa';
-
-  const keys = selectedMetricKeys();
-  const multi = keys.length > 1;
-  let datasets;
-
-  const levelKey = (k) => k === 'levelStatic' || k === 'levelPumping';
-  const levelAxisId = 'ylevel';
-  const axisId = {};
-  {
-    let n = 0;
-    keys.forEach(k => {
-      if (levelKey(k)) axisId[k] = levelAxisId;
-      else { n += 1; axisId[k] = n <= 1 ? 'y' : 'y' + n; }
-    });
-  }
-
-  if (multi) {
-
-    datasets = keys.map((key) => {
-      const m = METRICS.find(x => x.key === key);
-      const color = themeColor(m.color, '#6d5ae0');
-      const avg = labels.map((_, t) => {
-        const vals = selected.map(s => dataCache[state.period][key][s][t]);
-        return vals.reduce((a, b) => a + b, 0) / vals.length;
-      });
-      const isLevel = levelKey(key);
-      return {
-        id: 'ds-' + key,
-        label: `${m.label} (${m.unit})`,
-        data: avg,
-        borderColor: color,
-        backgroundColor: color,
-        borderWidth: 2.5,
-        tension: 0.35,
-        cubicInterpolationMode: 'monotone',
-        pointRadius: 3,
-        pointHoverRadius: 6,
-        pointBackgroundColor: color,
-        pointBorderColor: themeColor('--bg-card', '#ffffff'),
-        pointBorderWidth: 1.5,
-        fill: false,
-        yAxisID: axisId[key],
-        order: 1
-      };
-    });
-
-    if (keys.some(levelKey)) {
-      selected.forEach(s => {
-        const color = stationColor(s);
-        datasets.push({
-          id: 'ps-' + s,
-          label: s + ' · Pump Setting',
-          data: labels.map(() => PUMP_SETTING[s]),
-          borderColor: color,
-          backgroundColor: color,
-          borderWidth: 1.5,
-          borderDash: [6, 4],
-          pointRadius: 0,
-          pointHoverRadius: 3,
-          tension: 0,
-          fill: false,
-          yAxisID: levelAxisId,
-          order: 2
-        });
-      });
-    }
-
-    const staticDs = datasets.find(d => d.id === 'ds-levelStatic');
-    const pumpDs = datasets.find(d => d.id === 'ds-levelPumping');
-
-    if (pumpDs) {
-      selected.forEach(s => {
-        const psIdx = datasets.findIndex(d => d.id === 'ps-' + s);
-        if (psIdx < 0) return;
-        datasets.splice(psIdx + 1, 0, {
-          id: 'dd-fill-' + s,
-          label: '',
-          data: pumpDs.data,
-          borderColor: 'transparent',
-          backgroundColor: 'rgba(34,200,232,0.28)',
-          borderWidth: 0,
-          pointRadius: 0,
-          pointHoverRadius: 0,
-          tension: 0.35,
-          cubicInterpolationMode: 'monotone',
-          fill: '-1',
-          yAxisID: levelAxisId,
-          order: 0
-        });
-      });
-    }
-
-    if (staticDs && pumpDs) {
-      let si = datasets.indexOf(staticDs);
-      const pi = datasets.indexOf(pumpDs);
-      datasets.splice(pi, 1);
-      si = datasets.indexOf(staticDs);
-      datasets.splice(si + 1, 0, pumpDs);
-      pumpDs.fill = '-1';
-      pumpDs.backgroundColor = 'rgba(240,166,60,0.30)';
-    }
-  } else {
-    const metricKey = keys[0];
-    const few = selected.length <= 3;
-    const lineWidth = selected.length <= 3 ? 3 : selected.length <= 8 ? 2.25 : 1.75;
-    const ptRadius = selected.length <= 8 ? 3 : 0;
-    const fillColor = isDark ? 'rgba(69,216,245,0.28)' : 'rgba(34,200,232,0.22)';
-    const isLevelMetric = metricKey === 'levelStatic' || metricKey === 'levelPumping';
-
-    datasets = selected.map(s => {
-      const color = stationColor(s);
-      return {
-        label: s,
-        data: dataCache[state.period][metricKey][s],
-        borderColor: color,
-        backgroundColor: few ? fillColor : color,
-        borderWidth: lineWidth,
-        tension: 0.35,
-        cubicInterpolationMode: 'monotone',
-        pointRadius: ptRadius,
-        pointHoverRadius: 6,
-        pointBackgroundColor: color,
-        pointBorderColor: themeColor('--bg-card', '#ffffff'),
-        pointBorderWidth: 1.5,
-        pointHoverBorderWidth: 2,
-        fill: isLevelMetric ? false : few,
-        order: 1
-      };
-    });
-
-    if (isLevelMetric) {
-      selected.forEach(s => {
-        const color = stationColor(s);
-        datasets.push({
-          id: 'ps-' + s,
-          label: s + ' — Pump Setting',
-          data: labels.map(() => PUMP_SETTING[s]),
-          borderColor: color,
-          backgroundColor: color,
-          borderWidth: 1.5,
-          borderDash: [6, 4],
-          pointRadius: 0,
-          pointHoverRadius: 3,
-          tension: 0,
-          fill: false,
-          order: 2
-        });
-        datasets.push({
-          id: 'dd-single-' + s,
-          label: '',
-          data: dataCache[state.period][metricKey][s],
-          borderColor: 'transparent',
-          backgroundColor: 'rgba(34,200,232,0.28)',
-          borderWidth: 0,
-          pointRadius: 0,
-          pointHoverRadius: 0,
-          tension: 0.35,
-          cubicInterpolationMode: 'monotone',
-          fill: '-1',
-          order: 0
-        });
-      });
+      STATIONS=newStations;
+      PUMP_SETTING=newPump;
+      WELL_DEPTH=newDepth;
+      Object.keys(live).forEach(p=>{ dataCache[p]=live[p]; });
+      state.selected=new Set(STATIONS);
+      statusEl.textContent=STATIONS.length+' stations · live';
+      renderAll();
+    } catch(err){
+      statusEl.textContent='error: '+err.message;
+      // keep any existing data, just show error
     }
   }
 
-  let yScales;
-  if (multi) {
-    yScales = {};
-    const levelKey = (k) => k === 'levelStatic' || k === 'levelPumping';
-    const hasLevel = keys.some(levelKey);
-    if (hasLevel) {
-      yScales.ylevel = {
-        type: 'linear',
-        position: 'left',
-        reverse: true,
-        min: 0,
-        max: getLevelDepthMax(selected),
-        border: { color: gridColor },
-        ticks: { color: tickColor, font: { family: CHART_FONT.family, size: 10.5 } },
-        grid: { color: gridColor, drawTicks: false, borderDash: [3, 4] },
-        title: { display: true, text: 'Water Level (m) — depth below surface', color: themeColor('--purple', '#6d5ae0'), font: { family: CHART_FONT.family, size: 10 } }
-      };
-    }
-    keys.forEach((key) => {
-      if (levelKey(key)) return;
-      const m = METRICS.find(x => x.key === key);
-      const id = axisId[key];
-      yScales[id] = {
-        type: 'linear',
-        position: hasLevel ? 'right' : 'left',
-        border: { color: gridColor },
-        ticks: { color: tickColor, font: { family: CHART_FONT.family, size: 10.5 } },
-        grid: { drawOnChartArea: false },
-        title: { display: true, text: m.label + ' (' + m.unit + ')', color: themeColor(m.color, '#6d5ae0'), font: { family: CHART_FONT.family, size: 10 } }
-      };
-    });
-  } else {
-    const unit = METRICS.find(m => m.key === keys[0]).unit;
-    const isLevel = keys[0] === 'levelStatic' || keys[0] === 'levelPumping';
-    yScales = {
-      y: {
-        type: 'linear',
-        reverse: isLevel,
-        min: isLevel ? 0 : undefined,
-        max: isLevel ? getLevelDepthMax(selected) : undefined,
-        border: { color: gridColor },
-        ticks: { color: tickColor, font: { family: CHART_FONT.family, size: 11.5 }, padding: 8 },
-        grid: { color: gridColor, drawTicks: false, borderDash: [3, 4] },
-        title: { display: true, text: isLevel ? 'Water Level (m) — depth below surface' : unit, color: isLevel ? themeColor('--purple', '#6d5ae0') : tickColor, font: CHART_FONT }
-      }
-    };
-  }
+  // ----- render all -----
+  function renderAll(){ renderStationChips(); renderStats(); renderMetricTabs(); if(state.view==='trend') buildChart(); else if(state.view==='compare') renderCompare(); else renderHeatmap(); }
 
-  if (mainChartInstance) mainChartInstance.destroy();
-  mainChartInstance = new Chart(canvas, {
-    type: 'line',
-    data: { labels, datasets },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      layout: { padding: { top: 6, right: 8 } },
-      interaction: { mode: 'index', intersect: false },
-      elements: { line: { borderJoinStyle: 'round', borderCapStyle: 'round' } },
-      plugins: {
-        legend: {
-          position: 'top', align: 'start',
-          onClick: (e, legendItem, legend) => {
-            if (legendItem.datasetIndex < 0) return;
-            const ci = legend.chart;
-            ci.getDatasetMeta(legendItem.datasetIndex).hidden = legendItem.hidden ? false : true;
-            ci.update();
-          },
-          labels: {
-            color: themeColor('--text-muted', '#57777d'),
-            font: { family: CHART_FONT.family, size: 12, weight: '600' },
-            boxWidth: 28, boxHeight: 10, padding: 14, usePointStyle: true,
-            generateLabels: (chart) => {
-              const labelCol = themeColor('--text-muted', '#57777d');
-              const items = [];
-              chart.data.datasets.forEach((ds, i) => {
-                if (!ds || !ds.label || ds.label === '' || ds.label.indexOf('Pump Setting') !== -1) return;
-                items.push({
-                  text: ds.label,
-                  fontColor: labelCol,
-                  fillStyle: ds.borderColor,
-                  strokeStyle: ds.borderColor,
-                  lineWidth: Math.max(2, Math.round(ds.borderWidth || 2)),
-                  pointStyle: 'circle',
-                  lineDash: [],
-                  hidden: !chart.isDatasetVisible(i),
-                  index: i,
-                  datasetIndex: i,
-                  pointRadius: 8
-                });
-              });
-              if (keys.some(levelKey)) {
-                items.push({
-                  text: 'Pump Setting',
-                  fontColor: labelCol,
-                  fillStyle: 'transparent',
-                  strokeStyle: themeColor('--purple', '#9a6bff'),
-                  lineWidth: 3,
-                  lineDash: [8, 4],
-                  pointStyle: 'line',
-                  hidden: false,
-                  index: -1,
-                  datasetIndex: -1,
-                  pointRadius: 8
-                });
-              }
-              return items;
-            }
-          }
-        },
-        tooltip: {
-          titleFont: { family: CHART_FONT.family, size: 12, weight: '600' },
-          bodyFont: { family: CHART_FONT.family, size: 12 },
-          padding: 10, boxPadding: 5,
-          filter: (item) => item.dataset.label !== '',
-          callbacks: { label: (ctx) => {
-            if (multi) return `${ctx.dataset.label}: ${ctx.parsed.y.toFixed(2)}`;
-            const unit = METRICS.find(m => m.key === keys[0]).unit;
-            return `${ctx.dataset.label}: ${ctx.parsed.y.toFixed(2)} ${unit}`;
-          } }
-        }
-      },
-      scales: {
-        x: { border: { color: gridColor }, ticks: { color: tickColor, font: { family: CHART_FONT.family, size: 11.5 }, maxRotation: 0, autoSkip: true }, grid: { color: gridColor, drawTicks: false } },
-        ...yScales
-      }
-    }
-  });
-}
+  // ----- keyboard shortcuts -----
+  document.addEventListener('keydown',e=>{ if(e.target.tagName==='INPUT')return; if(e.key==='?'){ alert('1-7: toggle metrics\nT: trend\nC: compare\nH: heatmap\nS: theme\n/ : search'); } if(e.key>='1'&&e.key<='7'){ const idx=parseInt(e.key)-1; if(idx<METRICS.length) toggleMetric(METRICS[idx].key); } if(e.key==='t'||e.key==='T') setView('trend'); if(e.key==='c'||e.key==='C') setView('compare'); if(e.key==='h'||e.key==='H') setView('heatmap'); if(e.key==='s'||e.key==='S') toggleTheme(); if(e.key==='/'){ e.preventDefault(); document.getElementById('stationSearch').focus(); } if(e.key==='Escape') closeStationModal(); });
 
-// ===========================================================================
-// BOREHOLE WELL FIGURE — cross-section beside the trend chart (level metrics)
-// ===========================================================================
-function getLevelDepthMax(selected){const vals=[];(selected||[]).forEach(s=>{const a=dataCache[state.period].levelStatic[s]||[],b=dataCache[state.period].levelPumping[s]||[];if(a.length)vals.push(Number(a[a.length-1])||0);if(b.length)vals.push(Number(b[b.length-1])||0);if(Number.isFinite(Number(PUMP_SETTING[s])))vals.push(Number(PUMP_SETTING[s]));if(Number.isFinite(Number(WELL_DEPTH[s])))vals.push(Number(WELL_DEPTH[s]));});return Math.max(10,Math.ceil((vals.length?Math.max(...vals):10)*1.06*10)/10);}
-
-function renderWellFigure(){
-const fig=document.getElementById('wellFig'),selected=STATIONS.filter(s=>state.selected.has(s)),keys=selectedMetricKeys();
-if(!fig)return; const hasLevel=keys.some(k=>k==='levelStatic'||k==='levelPumping');
-if(state.view!=='trend'||!hasLevel||!selected.length){fig.style.display='none';return;}
-const avg=k=>selected.reduce((a,s)=>{const x=dataCache[state.period][k][s]||[];return a+(x.length?Number(x[x.length-1])||0:0)},0)/selected.length;
-const staticAvg=avg('levelStatic'),pumpAvg=avg('levelPumping');
-const setAvg=selected.reduce((a,s)=>a+(Number(PUMP_SETTING[s])||0),0)/selected.length;
-const wellAvg=selected.reduce((a,s)=>a+(Number(WELL_DEPTH[s])||0),0)/selected.length;
-const depthMax=getLevelDepthMax(selected),drawdown=Math.abs(staticAvg-pumpAvg);
-const W=220,H=470,top=46,bottom=42,x0=132,boreW=30,usableH=H-top-bottom,y=d=>top+(Math.max(0,Math.min(depthMax,d))/depthMax)*usableH;
-const groundY=y(0),staticY=y(staticAvg),pumpY=y(pumpAvg),setY=y(setAvg),bottomY=y(depthMax),cx=x0+boreW/2;
-const tc=themeColor('--text-faint','#9aa0bd'),txt=themeColor('--text-muted','#5a6180'),bc=themeColor('--border','#e2e5f0'),teal=themeColor('--teal','#6d5ae0'),orange=themeColor('--orange','#ff8c42'),purple=themeColor('--purple','#9a6bff'),blue=themeColor('--blue','#3aa1e0');
-const label=(yy,c,t)=>`<line x1="${x0-10}" y1="${yy}" x2="${x0+boreW+5}" y2="${yy}" stroke="${c}" stroke-width="2" stroke-dasharray="7 4"/><text x="6" y="${yy-5}" fill="${c}" font-size="9" font-weight="600" font-family="var(--mono)">${t}</text>`;
-const ticks=[],step=depthMax>60?20:depthMax>30?10:5;for(let d=step;d<depthMax;d+=step){const yy=y(d);ticks.push(`<line x1="${x0+boreW+4}" y1="${yy}" x2="${x0+boreW+10}" y2="${yy}" stroke="${tc}"/><text x="${x0+boreW+14}" y="${yy+3}" fill="${tc}" font-size="8" font-family="var(--mono)">${d}</text>`)}
-fig.innerHTML=`<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet" style="display:block;width:100%;height:100%;background:var(--bg-panel)"><defs><clipPath id="wellClip"><rect x="${x0-6}" y="${groundY}" width="${boreW+12}" height="${bottomY-groundY}"/></clipPath></defs><text x="${W/2}" y="18" fill="${txt}" font-size="10" font-weight="600" text-anchor="middle" font-family="var(--mono)">WELL CROSS-SECTION</text><line x1="6" y1="${groundY}" x2="${W-6}" y2="${groundY}" stroke="${bc}" stroke-width="2"/><text x="8" y="${groundY-5}" fill="${txt}" font-size="8" font-family="var(--mono)">GROUND / 0 m</text><rect x="${x0}" y="${groundY}" width="${boreW}" height="${bottomY-groundY}" fill="none" stroke="${bc}" stroke-width="2"/><g clip-path="url(#wellClip)"><rect x="${x0}" y="${pumpY}" width="${boreW}" height="${bottomY-pumpY}" fill="${hexToRgba(blue,.16)}"/></g><rect x="${cx-10}" y="${setY-7}" width="20" height="24" rx="3" fill="${blue}"/><circle cx="${cx}" cy="${setY+4}" r="3.5" fill="#fff"/><path d="M${cx-5} ${setY+17}h10l-2.5 8h-5z" fill="${blue}"/>${label(staticY,teal,'STATIC WL '+staticAvg.toFixed(1)+' m')}${label(pumpY,orange,'PUMPING WL '+pumpAvg.toFixed(1)+' m')}${label(setY,purple,'PUMP SET '+setAvg.toFixed(1)+' m')}<text x="${W/2}" y="${H-18}" fill="${tc}" font-size="8" text-anchor="middle" font-family="var(--mono)">DRAWDOWN ${drawdown.toFixed(1)} m</text><text x="${W/2}" y="${H-5}" fill="${tc}" font-size="8" text-anchor="middle" font-family="var(--mono)">WELL DEPTH ${wellAvg.toFixed(1)} m</text>${ticks.join('')}</svg>`;fig.style.display='block';
-}
-
-function hexToRgba(hex, alpha) {
-  const h = String(hex || '').replace('#', '');
-  if (h.length === 3) return hexToRgba(h.split('').map(c => c + c).join(''), alpha);
-  if (h.length !== 6) return 'rgba(109,90,224,' + alpha + ')';
-  const n = parseInt(h, 16);
-  return `rgba(${n >> 16}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
-}
-
-function renderAll() {
-  renderStationChips();
-  renderStats();
-  renderMetricTabs();
-  renderAlerts();
-  updateMetricHeader();
-  if (state.view === 'trend') { buildOrUpdateChart(); renderWellFigure(); }
-  else if (state.view === 'compare') { renderCompareView(); renderWellFigure(); }
-  else { renderHeatmapView(); renderWellFigure(); }
-}
-
-(function () {
-  if (typeof ResizeObserver === 'undefined') return;
-  const wrap = document.getElementById('chartWithWell');
-  if (!wrap) return;
-  let timer = null;
-  let lastW = 0;
-  new ResizeObserver(() => {
-    const w = wrap.clientWidth;
-    if (Math.abs(w - lastW) < 4) return;
-    lastW = w;
-    clearTimeout(timer);
-    timer = setTimeout(() => renderWellFigure(), 60);
-  }).observe(wrap);
-})();
-
-// ===========================================================================
-// UTIL
-// ===========================================================================
-function escapeHtml(str) {
-  return String(str ?? '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
-}
-function escapeAttr(str) { return escapeHtml(str); }
-
-// ===========================================================================
-// VIEW TOGGLE
-// ===========================================================================
-function setView(view) {
-  state.view = view;
-  document.querySelectorAll('#viewToggle button').forEach(b => b.classList.toggle('active', b.dataset.view === view));
-  document.getElementById('trendChartWrap').style.display = view === 'trend' ? '' : 'none';
-  document.getElementById('compareView').style.display = view === 'compare' ? '' : 'none';
-  document.getElementById('heatmapView').style.display = view === 'heatmap' ? '' : 'none';
-  
-  if (view === 'trend') { buildOrUpdateChart(); renderWellFigure(); }
-  else if (view === 'compare') { renderCompareView(); renderWellFigure(); }
-  else { renderHeatmapView(); renderWellFigure(); }
-}
-
-document.getElementById('viewToggle').addEventListener('click', (e) => {
-  const btn = e.target.closest('button[data-view]');
-  if (!btn) return;
-  setView(btn.dataset.view);
-});
-
-function renderCompareView() {
-  const box = document.getElementById('compareView');
-  const selected = STATIONS.filter(s => state.selected.has(s));
-
-  if (!selected.length) {
-    box.innerHTML = `<div class="empty-note" style="position:static;padding:40px 0;">Select at least one station to compare parameters</div>`;
-    return;
-  }
-
-  box.innerHTML = selectedMetricKeys().map(metricKey => {
-    const m = METRICS.find(x => x.key === metricKey);
-    const unit = m.unit;
-    const isLevelMetric = metricKey === 'levelStatic' || metricKey === 'levelPumping';
-    const latest = selected.map(s => {
-      const arr = dataCache[state.period][metricKey][s];
-      return { station: s, value: arr[arr.length - 1] };
-    }).sort((a, b) => b.value - a.value);
-
-    const maxVal = Math.max(...latest.map(r => r.value), isLevelMetric ? Math.max(...selected.map(s => PUMP_SETTING[s])) : 0) * 1.05 || 1;
-    const color = themeColor(m.color, '#6d5ae0');
-
-    const rows = latest.map(r => {
-      const pct = Math.max(2, (r.value / maxVal) * 100);
-      const settingMarker = isLevelMetric
-        ? `<div class="rbar-setting" style="left:${(PUMP_SETTING[r.station] / maxVal) * 100}%;" title="Pump setting: ${PUMP_SETTING[r.station]} m"></div>`
-        : '';
-      return `<div class="rank-row">
-        <div class="rname">${escapeHtml(r.station)}</div>
-        <div class="rbar-wrap"><div class="rbar" style="width:${pct}%;background:${color};"></div>${settingMarker}</div>
-        <div class="rval">${r.value.toFixed(metricKey === 'power' || metricKey === 'discharge' ? 1 : 0)} ${unit}</div>
-      </div>`;
-    }).join('');
-
-    return `<div style="margin-bottom:16px;">
-      <div style="font-family:var(--mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:${color};margin-bottom:6px;">${m.label} <span style="color:var(--text-faint);">(${unit})</span></div>
-      <div class="rank-list">${rows}</div>
-    </div>`;
-  }).join('');
-}
-
-// ===========================================================================
-// HEATMAP VIEW — visual grid showing all metrics across all stations
-// ===========================================================================
-function renderHeatmapView() {
-  const box = document.getElementById('heatmapView');
-  const selected = STATIONS.filter(s => state.selected.has(s));
-
-  if (!selected.length) {
-    box.innerHTML = `<div class="empty-note" style="position:static;padding:40px 0;">Select at least one station to view the heatmap</div>`;
-    return;
-  }
-
-  const metricKeys = METRICS.map(m => m.key);
-  
-  function getHeatColor(value, metricKey) {
-    const threshold = THRESHOLDS[metricKey];
-    const normalized = (value - threshold.min) / (threshold.max - threshold.min);
-    
-    if (value < threshold.criticalMin || value > threshold.criticalMax) {
-      return 'rgba(239, 77, 106, 0.75)';
-    } else if (value < threshold.min || value > threshold.max) {
-      return 'rgba(240, 166, 60, 0.55)';
-    } else {
-      const intensity = Math.abs(normalized - 0.5) * 2;
-      return `rgba(35, 192, 139, ${0.2 + intensity * 0.5})`;
-    }
-  }
-
-  box.innerHTML = `
-    <div style="overflow-x:auto;">
-      <table style="width:100%;border-collapse:collapse;font-size:12px;">
-        <thead>
-          <tr>
-            <th style="text-align:left;padding:8px;border-bottom:2px solid var(--border);font-family:var(--mono);font-weight:600;color:var(--text);min-width:140px;">Station</th>
-            ${METRICS.map(m => `<th style="text-align:center;padding:8px;border-bottom:2px solid var(--border);font-family:var(--mono);font-weight:600;color:var(--teal);min-width:80px;">${m.label}<br><span style="font-weight:400;color:var(--text-faint);font-size:10px;">(${m.unit})</span></th>`).join('')}
-          </tr>
-        </thead>
-        <tbody>
-          ${selected.map(s => `
-            <tr style="cursor:pointer;" onclick="showStationDetail('${escapeAttr(s)}')">
-              <td style="padding:8px;border-bottom:1px solid var(--border-soft);font-weight:600;color:var(--text);">
-                <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${stationColor(s)};margin-right:6px;vertical-align:middle;"></span>
-                ${escapeHtml(s)}
-              </td>
-              ${metricKeys.map(mk => {
-                const val = dataCache[state.period][mk][s];
-                const latest = val[val.length - 1];
-                const bgColor = getHeatColor(latest, mk);
-                return `<td style="text-align:center;padding:8px;border-bottom:1px solid var(--border-soft);font-family:var(--mono);font-weight:600;background:${bgColor};border-radius:4px;">
-                  ${latest.toFixed(mk === 'power' || mk === 'discharge' ? 1 : 0)}
-                </td>`;
-              }).join('')}
-            </tr>
-          `).join('')}
-        </tbody>
-      </table>
-    </div>
-    <div style="margin-top:12px;display:flex;gap:16px;justify-content:center;font-size:11px;font-family:var(--mono);color:var(--text-faint);">
-      <span><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:rgba(35,192,139,0.4);vertical-align:middle;margin-right:4px;"></span> Normal</span>
-      <span><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:rgba(240,166,60,0.55);vertical-align:middle;margin-right:4px;"></span> Warning</span>
-      <span><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:rgba(239,77,106,0.75);vertical-align:middle;margin-right:4px;"></span> Critical</span>
-    </div>
-  `;
-}
-
-// ===========================================================================
-// EXPORT — CSV
-// ===========================================================================
-function exportCsv() {
-  const keys = selectedMetricKeys();
-  const labels = buildLabels(state.period);
-  const selected = STATIONS.filter(s => state.selected.has(s));
-  if (!selected.length) return;
-
-  const blocks = keys.map(metricKey => {
-    const m = METRICS.find(x => x.key === metricKey);
-    const rows = [[`${m.label} (${m.unit})`], ['Period', ...selected]];
-    labels.forEach((label, i) => {
-      rows.push([label, ...selected.map(s => dataCache[state.period][metricKey][s][i].toFixed(2))]);
-    });
-    return rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
-  });
-
-  const csv = blocks.join('\n\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `sandbox-analytics_${keys.join('-')}_${state.period}.csv`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-}
-
-document.getElementById('exportCsvBtn').addEventListener('click', exportCsv);
-document.getElementById('printBtn').addEventListener('click', () => window.print());
-
-document.getElementById('periodTabs').addEventListener('click', (e) => {
-  const btn = e.target.closest('button[data-period]');
-  if (!btn) return;
-  document.querySelectorAll('#periodTabs button').forEach(b => b.classList.remove('active'));
-  btn.classList.add('active');
-  state.period = btn.dataset.period;
-  renderAll();
-});
-
-// ===========================================================================
-// SEARCH & KEYBOARD SHORTCUTS
-// ===========================================================================
-document.getElementById('stationSearch').addEventListener('input', (e) => {
-  filterStations(e.target.value);
-});
-
-document.addEventListener('keydown', (e) => {
-  if (e.target.tagName === 'INPUT') return;
-  
-  switch(e.key) {
-    case '?':
-      alert('Keyboard Shortcuts:\n\n1-7: Toggle metric tab (multi-select)\nT: Trend view\nC: Compare view\nH: Heatmap view\nS: Toggle theme\n/ : Focus search\nEsc: Close modal');
-      break;
-    case '1': toggleMetric('voltage'); break;
-    case '2': toggleMetric('current'); break;
-    case '3': toggleMetric('power'); break;
-    case '4': toggleMetric('discharge'); break;
-    case '5': toggleMetric('pressure'); break;
-    case '6': toggleMetric('levelStatic'); break;
-    case '7': toggleMetric('levelPumping'); break;
-    case 't': case 'T': setView('trend'); break;
-    case 'c': case 'C': setView('compare'); break;
-    case 'h': case 'H': setView('heatmap'); break;
-    case 's': case 'S': toggleTheme(); break;
-    case '/':
-      e.preventDefault();
-      document.getElementById('stationSearch').focus();
-      break;
-    case 'Escape':
-      closeStationModal();
-      break;
-  }
-});
-
-document.getElementById('stationModal').addEventListener('click', (e) => {
-  if (e.target.id === 'stationModal') closeStationModal();
-});
-
-// ===========================================================================
-// LIVE DATA — AGUS Asset Inventory GAS backend
-// ===========================================================================
-const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbzeEeGTvZmJUOHpHLS0Zijgd7X1-JvdTTIymVwGW6R616dIjDlssJCVFx-gTJgfRr7P5A/exec';
-
-const PERIODS = ['weekly', 'monthly', 'yearly'];
-const LOG_METRIC_FIELD = {
-  discharge: 'dischargeLps',
-  pressure: 'pressurePsi',
-  levelStatic: 'staticWl',
-  levelPumping: 'pumpingWl'
-};
-
-function updateDataStatus(msg) {
-  const el = document.getElementById('gasStatus');
-  if (el) el.textContent = msg || '';
-}
-
-async function gasGet(params) {
-  const q = new URLSearchParams(Object.assign({ action: 'asset' }, params));
-  const r = await fetch(GAS_API_URL + '?' + q.toString());
-  const j = await r.json();
-  if (!j.ok) throw new Error(String(j.error || 'GAS error'));
-  return j;
-}
-
-function handleSync() {
+  // ----- start: load from GAS, no hardcoded data -----
   loadLiveData();
-}
-
-function gasNum(v) {
-  if (v === null || v === undefined || v === '') return null;
-  const n = parseFloat(String(v).replace(/[^0-9.\-]/g, ''));
-  return isNaN(n) ? null : n;
-}
-
-function gasReading(entry, metricKey) {
-  if (metricKey === 'voltage' || metricKey === 'current') {
-    const key = metricKey === 'voltage' ? 'voltage' : 'current';
-    const phases = key === 'voltage'
-      ? ['L1L2', 'L1L3', 'L2L3'] : ['L1', 'L2', 'L3'];
-    let vals = phases.map(ph => gasNum(entry[key + 'Before' + ph]));
-    if (!vals.some(v => v !== null)) vals = phases.map(ph => gasNum(entry[key + 'After' + ph]));
-    vals = vals.filter(v => v !== null);
-    if (!vals.length) return null;
-    return vals.reduce((a, b) => a + b, 0) / vals.length;
-  }
-  if (metricKey === 'power') {
-    const v = gasReading(entry, 'voltage');
-    const i = gasReading(entry, 'current');
-    if (v === null || i === null) return null;
-    return Math.sqrt(3) * v * i * 0.85 / 1000;
-  }
-  return gasNum(entry[LOG_METRIC_FIELD[metricKey]]);
-}
-
-function gasBucketEnds(period) {
-  const now = new Date();
-  const n = BUCKET_COUNT[period];
-  const ends = [];
-  for (let i = n - 1; i >= 0; i--) {
-    const d = new Date(now);
-    if (period === 'weekly') {
-      d.setDate(d.getDate() - i * 7);
-    } else if (period === 'monthly') {
-      d.setDate(1); d.setHours(0, 0, 0, 0);
-      d.setMonth(d.getMonth() - i);
-      d.setMonth(d.getMonth() + 1, 0); d.setHours(23, 59, 59, 999);
-    } else {
-      d.setHours(0, 0, 0, 0);
-      d.setFullYear(d.getFullYear() - i);
-      d.setMonth(11, 31); d.setHours(23, 59, 59, 999);
-    }
-    ends.push(d.getTime());
-  }
-  return ends;
-}
-
-function parseGasDate(raw) {
-  if (!raw) return null;
-  const d = new Date(raw);
-  if (!isNaN(d.getTime())) return d.getTime();
-  const m = String(raw).match(/(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
-  if (m) return new Date(+m[1], +m[2] - 1, +m[3]).getTime();
-  return null;
-}
-
-function buildLiveSeries(entries, metricKey, period) {
-  const ends = gasBucketEnds(period);
-  const n = ends.length;
-  const series = new Array(n).fill(null);
-  const pts = [];
-  (entries || []).forEach(en => {
-    const t = parseGasDate(en.date);
-    const v = gasReading(en, metricKey);
-    if (t && v !== null) pts.push({ t: t, v: v });
-  });
-  if (!pts.length) return series;
-  pts.sort((a, b) => a.t - b.t);
-  let lastVal = null;
-  pts.forEach(pt => {
-    let bi = 0;
-    for (let i = 0; i < n; i++) { if (pt.t <= ends[i]) { bi = i; break; } }
-    lastVal = pt.v;
-    series[bi] = pt.v;
-  });
-  let carry = null;
-  for (let i = 0; i < n; i++) {
-    if (series[i] !== null) carry = series[i];
-    else if (carry !== null) series[i] = carry;
-  }
-  return series;
-}
-
-function pumpSettingFromSpecs(specs, fallback) {
-  let val = null;
-  (specs || []).forEach(s => {
-    if (/SETTING|SET\b|SET DEPTH/i.test(String(s.label))) {
-      const v = gasNum(String(s.value));
-      if (v !== null && v > 0) val = v;
-    }
-  });
-  return val !== null ? val : (fallback || 50);
-}
-
-function wellDepthFromSpecs(specs, fallback) {
-  let val = null;
-  (specs || []).forEach(s => {
-    // Only the literal "WELL DEPTH" label (or equivalent) under a well/bore
-    // section — not static WL, pumping WL, or setting, which are shallower.
-    const isSection = /WELL|BORE|BOREHOLE/i.test(String(s.section));
-    const isLabel = /WELL DEPTH|BOREHOLE DEPTH|TOTAL DEPTH|WELL DEPTH M/i.test(String(s.label));
-    if (isSection && isLabel) {
-      const v = gasNum(String(s.value));
-      if (v !== null && v > 0) val = v;
-    }
-  });
-  return val !== null ? val : (fallback || 60);
-}
-
-async function loadLiveData() {
-  try {
-    updateDataStatus('Connecting to GAS…');
-    const list = await gasGet({ action: 'assets' });
-    const assets = (list.assets || []).filter(a => a.category === 'Pumping Stations');
-    if (!assets.length) throw new Error('No pumping stations found');
-    updateDataStatus('Loading ' + assets.length + ' stations…');
-    const details = await Promise.all(assets.map(a =>
-      gasGet({ action: 'asset', id: a.id }).then(j => ({ info: a, asset: j.asset }))
-    ));
-
-    const origSettings = Object.assign({}, PUMP_SETTING);
-    const origDepths = Object.assign({}, WELL_DEPTH);
-    const live = {};
-    PERIODS.forEach(p => {
-      live[p] = {};
-      METRICS.forEach(m => live[p][m.key] = {});
-    });
-
-    const stationNames = [];
-    const pumpSettings = {};
-    const wellDepths = {};
-    let readings = 0;
-
-    details.forEach(d => {
-      const asset = d.asset;
-      if (!asset) return;
-      const name = String(asset.title || d.info.title || d.info.id || '').trim();
-      if (!name) return;
-      stationNames.push(name);
-      pumpSettings[name] = pumpSettingFromSpecs(asset.specs, origSettings[name]);
-      wellDepths[name] = wellDepthFromSpecs(asset.specs, origDepths[name]);
-      const log = Array.isArray(asset.log) ? asset.log : [];
-      readings += log.length;
-      METRICS.forEach(m => {
-        PERIODS.forEach(p => {
-          live[p][m.key][name] = buildLiveSeries(log, m.key, p);
-        });
-      });
-    });
-
-    if (!stationNames.length) throw new Error('No readable station data');
-
-    // Fill station/metric combos with zero readings using a flat baseline,
-    // so every consumer (stats/compare/heatmap) always gets a number array.
-    stationNames.forEach(name => {
-      METRICS.forEach(m => {
-        const hasData = PERIODS.some(p => live[p][m.key][name].some(v => v !== null));
-        if (hasData) return;
-        const base = (BASELINES[name] && BASELINES[name][m.key]) || 0;
-        PERIODS.forEach(p => {
-          live[p][m.key][name] = live[p][m.key][name].map(() => base);
-        });
-      });
-    });
-
-    STATIONS = stationNames;
-    PUMP_SETTING = pumpSettings;
-    WELL_DEPTH = wellDepths;
-    PERIODS.forEach(p => { dataCache[p] = live[p]; });
-    state.selected = new Set(STATIONS);
-    updateDataStatus(stationNames.length + ' stations · ' + readings + ' log entries');
-    renderAll();
-    return true;
-  } catch (err) {
-    const msg = String(err && err.message ? err.message : err);
-    updateDataStatus('GAS error: ' + msg);
-    return false;
-  }
-}
-
-renderAll();
-loadLiveData();
 </script>
 </body>
 </html>
