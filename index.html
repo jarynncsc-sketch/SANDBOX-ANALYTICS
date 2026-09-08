@@ -503,6 +503,34 @@
     .station-detail-panel{padding:16px;}
   }
 
+
+/* Drawing auto-fit containment */
+#chartWithWell{
+  align-items:stretch !important;
+  min-width:0 !important;
+  min-height:0 !important;
+  width:100% !important;
+  max-width:100% !important;
+  overflow:hidden !important;
+}
+#wellFig{
+  flex-shrink:1 !important;
+  min-width:72px !important;
+  width:auto;
+  max-width:42% !important;
+  min-height:0 !important;
+  max-height:100% !important;
+  overflow:hidden !important;
+  box-sizing:border-box !important;
+}
+#wellFig svg{
+  display:block !important;
+  width:100% !important;
+  height:100% !important;
+  max-width:100% !important;
+  max-height:100% !important;
+}
+
 /* ============================================================
    MODAL CHART CONTAINMENT
    The chart must never paint outside its card/modal at any
@@ -1548,14 +1576,33 @@ function renderWellFigure() {
 
   const depthMax = wellAvg > 0 ? wellAvg * 1.06 : Math.max(setAvg, staticAvg, pumpAvg) * 1.18 + 4;
 
-  // Auto-adapt to the panel's actual width so labels never truncate: the SVG
-  // uses a fixed-height portrait viewBox whose width scales with the 5% slot.
+  // Auto-fit the well drawing to the ACTUAL available box.
+  // Unlike a fixed 5% width, this responds to modal size and browser zoom.
   const wrapEl = document.getElementById('chartWithWell');
   const wrapW = wrapEl ? wrapEl.clientWidth : 0;
-  // The figure occupies ~5% of the flex parent (capped), minus gap.
-  const panelW = Math.max(96, Math.min(150, Math.round((wrapW * 0.05))));
+  const wrapH = wrapEl ? wrapEl.clientHeight : 0;
+
+  // Keep the drawing proportional and inside the modal. On narrow layouts,
+  // reserve only a practical width; on larger layouts allow more room.
+  const gap = 8;
+  const availableW = Math.max(80, wrapW - gap);
+  const availableH = Math.max(120, wrapH);
+
+  // Target about 16% of the available row, bounded so it cannot consume
+  // the chart area or become too narrow for labels.
+  const panelW = Math.max(
+    92,
+    Math.min(180, Math.round(availableW * 0.16))
+  );
+
   const baseW = 185;
-  const scale = panelW / baseW;
+  const baseH = 470;
+  const widthScale = panelW / baseW;
+  const heightScale = availableH / baseH;
+
+  // Fit both dimensions. The SVG itself remains viewBox based, so this
+  // scale controls text/geometry without allowing the drawing to overflow.
+  const scale = Math.max(0.55, Math.min(1.0, Math.min(widthScale, heightScale)));
   const H = 470;
   const W = Math.max(130, Math.round(baseW * scale));
   const top = 42;
@@ -1591,8 +1638,17 @@ function renderWellFigure() {
   const label = (yy, fill, txt) => `<line x1="${x0 - 4}" y1="${yy}" x2="${x0 + boreW + 4}" y2="${yy}" stroke="${fill}" stroke-width="1.6" stroke-dasharray="6 4"/>
     <text x="${Math.round(4 * scale)}" y="${yy + 3}" fill="${fill}" font-size="${(8 * scale).toFixed(1)}" font-weight="600" font-family="var(--mono)">${txt}</text>`;
 
+  const svgW = Math.max(96, Math.min(panelW, Math.round(baseW * scale)));
+  const svgH = Math.max(120, Math.min(availableH, Math.round(baseH * scale)));
+
+  fig.style.width = svgW + 'px';
+  fig.style.height = '100%';
+  fig.style.maxWidth = '100%';
+  fig.style.maxHeight = '100%';
+  fig.style.flex = '0 1 ' + svgW + 'px';
+
   fig.innerHTML = `
-  <svg viewBox="0 0 ${W} ${H}" style="background:var(--bg-panel);width:100%;" preserveAspectRatio="xMidYMid meet">
+  <svg viewBox="0 0 ${W} ${H}" style="background:var(--bg-panel);width:100%;height:100%;max-width:100%;max-height:100%;" preserveAspectRatio="xMidYMid meet">
     <defs>
       <linearGradient id="wellSoil" x1="0" y1="0" x2="0" y2="1">
         <stop offset="0%" stop-color="${hexToRgba(themeColor('--amber', '#f0a63c'), 0.16)}"/>
@@ -1629,6 +1685,60 @@ function renderWellFigure() {
 
   fig.style.display = 'block';
 }
+
+// ===========================================================================
+ // WELL DRAWING AUTO-FIT
+ // Re-render the drawing whenever its actual modal/card dimensions change.
+ // ===========================================================================
+ (function setupWellDrawingAutoFit() {
+   let rafId = 0;
+   let settleId = 0;
+
+   function refitWell() {
+     cancelAnimationFrame(rafId);
+     clearTimeout(settleId);
+
+     rafId = requestAnimationFrame(() => {
+       const wrap = document.getElementById('chartWithWell');
+       const fig = document.getElementById('wellFig');
+       if (!wrap || !fig || state.view !== 'trend') return;
+
+       renderWellFigure();
+
+       // One more pass after flex/grid/modal layout settles.
+       settleId = setTimeout(() => {
+         if (state.view === 'trend') renderWellFigure();
+       }, 120);
+     });
+   }
+
+   const wrap = document.getElementById('chartWithWell');
+   const fig = document.getElementById('wellFig');
+
+   if ('ResizeObserver' in window) {
+     const ro = new ResizeObserver(refitWell);
+     if (wrap) ro.observe(wrap);
+     if (fig) ro.observe(fig);
+     const card = wrap ? wrap.closest('.metric-card') : null;
+     if (card) ro.observe(card);
+   }
+
+   window.addEventListener('resize', refitWell, { passive: true });
+   window.addEventListener('orientationchange', refitWell, { passive: true });
+
+   if (window.visualViewport) {
+     window.visualViewport.addEventListener('resize', refitWell, { passive: true });
+     window.visualViewport.addEventListener('scroll', refitWell, { passive: true });
+   }
+
+   if (document.fonts && document.fonts.ready) {
+     document.fonts.ready.then(refitWell).catch(() => {});
+   }
+
+   refitWell();
+   setTimeout(refitWell, 50);
+   setTimeout(refitWell, 300);
+ })();
 
 function hexToRgba(hex, alpha) {
   const h = String(hex || '').replace('#', '');
