@@ -857,17 +857,32 @@ function buildAllHistoryLabels(period, firstTime) {
   return labels;
 }
 
+function getEntryRemark(en) {
+  if (!en || typeof en !== 'object') return '';
+  const candidates = [
+    en.remarks, en.remark, en.Remarks, en.Remark,
+    en.comment, en.comments, en.Comment, en.Comments,
+    en.note, en.notes, en.Note, en.Notes,
+    en.observation, en.Observation
+  ];
+  for (const v of candidates) {
+    if (v !== null && v !== undefined && String(v).trim() !== '') return String(v).trim();
+  }
+  return '';
+}
+
 function buildAllHistorySeries(entries, metricKey, period) {
   const pts = [];
   (entries || []).forEach(en => {
     const t = parseGasDate(en.date), v = gasReading(en, metricKey);
-    if (t && v !== null) pts.push({t, v});
+    if (t && v !== null) pts.push({t, v, remark: getEntryRemark(en)});
   });
-  if (!pts.length) return {labels: buildLabels(period), values: []};
+  if (!pts.length) return {labels: buildLabels(period), values: [], pointDates: [], pointRemarks: []};
   pts.sort((a,b) => a.t-b.t);
   const first = new Date(pts[0].t), labels = buildAllHistoryLabels(period, pts[0].t);
   const values = new Array(labels.length).fill(null);
   const pointDates = new Array(labels.length).fill('');
+  const pointRemarks = new Array(labels.length).fill('');
   const start = period === 'weekly'
     ? new Date(first.getFullYear(), first.getMonth(), first.getDate())
     : period === 'monthly'
@@ -886,14 +901,25 @@ function buildAllHistorySeries(entries, metricKey, period) {
   }
   pts.forEach(pt => {
     const i = bucketIndex(pt.t);
-    if (i >= 0 && i < values.length) { values[i] = pt.v; pointDates[i] = new Date(pt.t).toLocaleDateString(undefined, { month:'short', day:'numeric', year:'numeric' }); }
+    if (i >= 0 && i < values.length) {
+      values[i] = pt.v;
+      pointDates[i] = new Date(pt.t).toLocaleDateString(undefined, { month:'short', day:'numeric', year:'numeric' });
+      pointRemarks[i] = pt.remark || '';
+    }
   });
-  let carry = null;
+  let carry = null, carryDate = '', carryRemark = '';
   for (let i=0;i<values.length;i++) {
-    if (values[i] !== null) carry = values[i];
-    else if (carry !== null) values[i] = carry;
+    if (values[i] !== null) {
+      carry = values[i];
+      carryDate = pointDates[i];
+      carryRemark = pointRemarks[i];
+    } else if (carry !== null) {
+      values[i] = carry;
+      pointDates[i] = carryDate;
+      pointRemarks[i] = carryRemark;
+    }
   }
-  return {labels, values, pointDates};
+  return {labels, values, pointDates, pointRemarks};
 }
 
 function getTrendSeries(period, metricKey, station) {
@@ -902,13 +928,19 @@ function getTrendSeries(period, metricKey, station) {
   return {
     labels: buildLabels(period),
     values: (dataCache[period][metricKey][station] || []).slice(),
-    pointDates: []
+    pointDates: [],
+    pointRemarks: []
   };
 }
 
 function getTrendWindow(series) {
   const n = Math.min(state.trendWindow, series.labels.length, series.values.length);
-  return {labels: series.labels.slice(-n), values: series.values.slice(-n)};
+  return {
+    labels: series.labels.slice(-n),
+    values: series.values.slice(-n),
+    pointDates: (series.pointDates || []).slice(-n),
+    pointRemarks: (series.pointRemarks || []).slice(-n)
+  };
 }
 
 // ===========================================================================
@@ -1301,7 +1333,9 @@ function buildOrUpdateChart() {
         pointBorderWidth: 1.5,
         fill: false,
         yAxisID: axisId[key],
-        order: 1
+        order: 1,
+        trendMetricKey: key,
+        trendStations: selected.slice()
       };
     });
 
@@ -1385,7 +1419,9 @@ function buildOrUpdateChart() {
         pointBorderWidth: 1.5,
         pointHoverBorderWidth: 2,
         fill: isLevelMetric ? false : few,
-        order: 1
+        order: 1,
+        trendStation: s,
+        trendMetricKey: metricKey
       };
     });
 
@@ -1551,9 +1587,38 @@ function buildOrUpdateChart() {
               const item = items && items[0];
               if (!item) return 'Date';
               const idx = item.dataIndex;
-              const station = selected[item.datasetIndex] || selected[0];
-              const series = station ? getTrendSeries(state.period, keys[0], station) : null;
-              return (series && series.pointDates && series.pointDates[idx]) || item.label || 'Date';
+              const ds = item.dataset || {};
+              let dates = [];
+              if (ds.trendStation && ds.trendMetricKey) {
+                const series = getTrendSeries(state.period, ds.trendMetricKey, ds.trendStation);
+                dates = series.pointDates || [];
+              } else if (ds.trendMetricKey && Array.isArray(ds.trendStations)) {
+                ds.trendStations.forEach(station => {
+                  const series = getTrendSeries(state.period, ds.trendMetricKey, station);
+                  if (series.pointDates && series.pointDates[idx]) dates.push(series.pointDates[idx]);
+                });
+              }
+              return (dates.find(Boolean)) || item.label || 'Date';
+            },
+            afterBody: (items) => {
+              if (!items || !items.length) return [];
+              const idx = items[0].dataIndex;
+              const remarks = new Set();
+              items.forEach(item => {
+                const ds = item.dataset || {};
+                if (ds.trendStation && ds.trendMetricKey) {
+                  const series = getTrendSeries(state.period, ds.trendMetricKey, ds.trendStation);
+                  const r = series.pointRemarks && series.pointRemarks[idx];
+                  if (r) remarks.add(`${ds.trendStation}: ${r}`);
+                } else if (ds.trendMetricKey && Array.isArray(ds.trendStations)) {
+                  ds.trendStations.forEach(station => {
+                    const series = getTrendSeries(state.period, ds.trendMetricKey, station);
+                    const r = series.pointRemarks && series.pointRemarks[idx];
+                    if (r) remarks.add(`${station}: ${r}`);
+                  });
+                }
+              });
+              return remarks.size ? ['', 'Remarks: ' + Array.from(remarks).join(' | ')] : [];
             },
             label: (ctx) => {
               if (multi) return `${ctx.dataset.label}: ${ctx.parsed.y.toFixed(2)}`;
