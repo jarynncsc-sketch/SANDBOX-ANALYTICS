@@ -171,7 +171,7 @@
 
   main{flex:1;padding:12px 16px;width:100%;min-height:0;display:flex;overflow:hidden;}
 
-  .layout-grid{display:flex;gap:12px;align-items:stretch;flex:1;min-width:0;min-height:0;width:100%;}
+  .layout-grid{display:flex;gap:12px;align-items:stretch;flex:1;min-width:0;min-height:0;width:100%;max-width:2200px;margin:0 auto;}
   .sidebar{width:25%;min-width:230px;max-width:340px;flex-shrink:0;display:flex;flex-direction:column;overflow:hidden;min-height:0;padding:10px 12px;margin-bottom:0;}
   .sidebar-btns{display:flex;gap:5px;margin:6px 0 8px;flex-shrink:0;}
   .sidebar-btns .btn-ghost{flex:1;}
@@ -203,7 +203,7 @@
 
   .content-col > .panel{flex-shrink:0;}
   .content-col > .metric-card{flex:1;min-height:0;display:flex;flex-direction:column;}
-  .content-col > .metric-card .chart-wrap{flex:1;min-height:0;height:auto;}
+  .content-col > .metric-card .chart-wrap{flex:1;min-height:260px;height:auto;}
   .content-col > .metric-card .rank-list{flex:1;min-height:0;overflow-y:auto;}
   .content-col > .sandbox-note{flex-shrink:0;}
 
@@ -212,11 +212,13 @@
     #app{height:auto;overflow:visible;}
     main{overflow:visible;display:block;padding:16px;}
     .layout-grid{flex-direction:column;}
-    .sidebar{width:100%;max-width:none;position:static;max-height:none;}
+    .sidebar{width:100%;max-width:none;min-width:0;position:static;max-height:none;}
     .station-list{max-height:280px;flex:none;}
     .content-col{overflow:visible;}
     .content-col > .metric-card{flex:none;}
-    .content-col > .metric-card .chart-wrap{flex:none;height:340px;}
+    .content-col > .metric-card .chart-wrap{
+      flex:none;height:clamp(260px, 55vh, 480px);min-height:260px;
+    }
     .topbar-controls{width:100%;justify-content:flex-start;}
     .search-box{min-width:0;flex:1;}
   }
@@ -382,9 +384,34 @@
   @media(max-width:700px){
     header.topbar{padding:12px 16px;}
     main{padding:16px;}
-    .chart-wrap{height:300px;}
+    .content-col > .metric-card .chart-wrap{
+      height:clamp(220px, 48vh, 380px);min-height:220px;
+    }
     .rank-row{grid-template-columns:100px 1fr 60px;}
     .station-detail-panel{max-width:95%;}
+  }
+
+  @media(max-width:640px){
+    .chart-with-well{flex-direction:column;}
+    .chart-with-well .well-fig{
+      max-width:none;width:100%;min-width:0;height:70px;margin-top:8px;flex:none;
+    }
+  }
+
+  @media(max-width:480px){
+    header.topbar{padding:10px 12px;gap:10px;}
+    .brand-text b{font-size:13px;}
+    .brand-text span{font-size:9px;}
+    .kbd-shortcut-hint{display:none;}
+    main{padding:10px;}
+    .sidebar{padding:8px 10px;}
+    .station-list{max-height:220px;}
+    .content-col > .metric-card .chart-wrap{
+      height:clamp(200px, 45vh, 340px);min-height:200px;
+    }
+    .metric-card-toolbar{flex-wrap:wrap;}
+    .rank-row{grid-template-columns:88px 1fr 50px;gap:8px;}
+    .station-detail-panel{padding:16px;}
   }
 </style>
 </head>
@@ -414,7 +441,7 @@
       </button>
       <button class="theme-toggle" onclick="handleSync()" title="Refresh live data" aria-label="Refresh live data" style="padding:0 10px;"><span class="icon-sun">&#8635;</span></button>
       <span class="kbd-hint" id="gasStatus" style="display:inline-flex;align-items:center;"></span>
-      <div class="kbd-hint" title="Keyboard shortcuts available">
+      <div class="kbd-hint kbd-shortcut-hint" title="Keyboard shortcuts available">
         Press <span class="mono">?</span> for shortcuts
       </div>
     </div>
@@ -916,6 +943,36 @@ function renderAlerts() {}
 // METRIC TABS
 // ===========================================================================
 let mainChartInstance = null;
+
+// Force the chart to re-measure and refill its container whenever the
+// container's actual box size changes — this covers window resizes AND
+// browser zoom (Ctrl+/Ctrl-/pinch), which don't always trigger Chart.js's
+// own built-in resize handling reliably across browsers/zoom steps.
+(function setupChartAutoFit() {
+  let rafId = null;
+  let settleId = null;
+  function refit() {
+    if (rafId) cancelAnimationFrame(rafId);
+    if (settleId) clearTimeout(settleId);
+    rafId = requestAnimationFrame(() => {
+      if (mainChartInstance) mainChartInstance.resize();
+      // Large zoom jumps (e.g. down to 50%) can settle layout a beat after
+      // the first paint — take a second pass once things are quiet.
+      settleId = setTimeout(() => {
+        if (mainChartInstance) mainChartInstance.resize();
+      }, 150);
+    });
+  }
+  const target = document.getElementById('trendChartWrap');
+  if (target && 'ResizeObserver' in window) {
+    new ResizeObserver(refit).observe(target);
+  }
+  window.addEventListener('resize', refit);
+  window.addEventListener('orientationchange', refit);
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener('resize', refit);
+  }
+})();
 
 function selectedMetricKeys() {
   return METRICS.map(m => m.key).filter(k => state.metrics.has(k));
